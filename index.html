@@ -1,0 +1,4188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Xiaomi SU7 Ultra · 360° 3D 展厅与工程透视实验室</title>
+<style>
+  :root {
+    --accent: #EBBF00;
+    --accent-dim: rgba(235, 191, 0, 0.22);
+    --danger: #FF4D4F;
+    --bg: #0B0D12;
+    --panel: rgba(14, 17, 24, 0.72);
+    --panel-strong: rgba(16, 20, 28, 0.88);
+    --border: rgba(255, 255, 255, 0.11);
+    --border-soft: rgba(255, 255, 255, 0.06);
+    --text: #F4F6FA;
+    --text-muted: rgba(244, 246, 250, 0.62);
+    --text-dim: rgba(244, 246, 250, 0.42);
+    --pill-bg: rgba(255, 255, 255, 0.06);
+    --pill-hover: rgba(255, 255, 255, 0.12);
+    --shadow: 0 18px 48px rgba(0, 0, 0, 0.48);
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  body.theme-light {
+    --bg: #EAECE8;
+    --panel: rgba(250, 251, 249, 0.78);
+    --panel-strong: rgba(252, 253, 251, 0.94);
+    --border: rgba(18, 22, 28, 0.12);
+    --border-soft: rgba(18, 22, 28, 0.06);
+    --text: #14171C;
+    --text-muted: rgba(20, 23, 28, 0.62);
+    --text-dim: rgba(20, 23, 28, 0.44);
+    --pill-bg: rgba(18, 22, 28, 0.06);
+    --pill-hover: rgba(18, 22, 28, 0.11);
+    --shadow: 0 14px 36px rgba(20, 24, 30, 0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  #canvas-wrap {
+    position: fixed; inset: 0; z-index: 0;
+  }
+  #canvas-wrap canvas {
+    display: block; width: 100%; height: 100%; outline: none;
+    cursor: grab; touch-action: none;
+  }
+  #canvas-wrap canvas:active { cursor: grabbing; }
+
+  /* HUD Layout */
+  #hud {
+    position: fixed; inset: 0; z-index: 10; pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+  body.hud-hidden #hud { opacity: 0; pointer-events: none; }
+  body.hud-hidden #hud * { pointer-events: none !important; }
+
+  .glass {
+    background: var(--panel);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  /* Top Bar */
+  .topbar {
+    position: absolute; top: 14px; left: 16px; right: 16px;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 10px; flex-wrap: nowrap; pointer-events: none;
+  }
+  .topbar > * { pointer-events: auto; }
+
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 12px; border-radius: 13px; flex-shrink: 0;
+  }
+  .brand-mark {
+    width: 24px; height: 24px; border-radius: 7px;
+    background: var(--accent); color: #111317;
+    font-weight: 800; font-size: 12px; letter-spacing: -0.02em;
+    display: grid; place-items: center;
+  }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+  .brand-title { font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em; }
+  .brand-sub { font-size: 10px; color: var(--text-muted); letter-spacing: 0.02em; }
+
+  .mode-stack {
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+  }
+  .segmented {
+    display: flex; align-items: center; gap: 3px;
+    padding: 4px; border-radius: 13px;
+  }
+  .seg-btn {
+    border: 0; background: transparent; color: var(--text-muted);
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    padding: 6px 11px; border-radius: 9px; cursor: pointer;
+    transition: all 0.18s ease; white-space: nowrap;
+  }
+  .seg-btn:hover { color: var(--text); background: var(--pill-bg); }
+  .seg-btn.active {
+    background: var(--accent); color: #101216; font-weight: 700;
+    box-shadow: 0 2px 10px rgba(235, 191, 0, 0.35);
+  }
+
+  .inline-slider {
+    display: none; align-items: center; gap: 10px;
+    padding: 6px 13px; border-radius: 11px; font-size: 11.5px;
+  }
+  .inline-slider.visible { display: flex; }
+  .inline-slider label { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+  .inline-slider input[type=range] { width: 140px; accent-color: var(--accent); cursor: pointer; }
+  .inline-slider .val { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-weight: 700; min-width: 36px; text-align: right; }
+
+  .util-bar {
+    display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 13px; flex-shrink: 0;
+  }
+  .util-btn {
+    border: 1px solid transparent; background: var(--pill-bg); color: var(--text);
+    font-family: inherit; font-size: 11.5px; font-weight: 600;
+    padding: 6px 9px; border-radius: 9px; cursor: pointer;
+    transition: all 0.16s ease; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .util-btn:hover { background: var(--pill-hover); }
+  .util-btn.active {
+    background: var(--accent-dim); border-color: var(--accent); color: var(--text);
+  }
+  body.theme-dark .util-btn.active { color: #FFE36E; }
+
+  /* Bottom-Left Telemetry & Drive Console */
+  .telemetry-panel {
+    position: absolute; left: 16px; bottom: 16px; width: 304px;
+    padding: 13px 15px; border-radius: 16px; pointer-events: auto;
+    display: flex; flex-direction: column; gap: 9px;
+  }
+  .hero-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+  .hero-value-wrap { display: flex; align-items: baseline; gap: 5px; }
+  .hero-value {
+    font-size: 36px; font-weight: 800; line-height: 0.95;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+  }
+  .hero-unit { font-size: 13px; font-weight: 700; color: var(--accent); font-style: italic; }
+  .status-pill {
+    font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px;
+    background: var(--pill-bg); border: 1px solid var(--border);
+    color: var(--text-muted); white-space: nowrap;
+  }
+  .status-pill.warning {
+    background: rgba(255, 77, 79, 0.18); border-color: rgba(255, 77, 79, 0.55); color: #FF7875;
+  }
+  body.theme-light .status-pill.warning { color: #CF1322; }
+
+  .hero-bar-track {
+    width: 100%; height: 4px; border-radius: 999px;
+    background: var(--border-soft); overflow: hidden;
+  }
+  .hero-bar-fill {
+    height: 100%; width: 0%; border-radius: 999px;
+    background: linear-gradient(90deg, #EBBF00, #FFF099);
+    transition: width 0.08s linear, background 0.2s ease;
+  }
+  .hero-bar-fill.warning { background: linear-gradient(90deg, #FF4D4F, #FF9C6E); }
+
+  .sub-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    padding-top: 1px;
+  }
+  .metric {
+    background: var(--pill-bg); border: 1px solid var(--border-soft);
+    border-radius: 9px; padding: 5px 7px;
+  }
+  .metric-k { font-size: 9.5px; color: var(--text-muted); letter-spacing: 0.02em; }
+  .metric-v {
+    font-size: 12px; font-weight: 700; margin-top: 1px;
+    font-variant-numeric: tabular-nums; font-family: var(--font-mono);
+  }
+
+  .drive-modes {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+  }
+  .dm-btn {
+    border: 1px solid var(--border-soft); background: var(--pill-bg); color: var(--text-muted);
+    font-family: inherit; font-size: 11px; font-weight: 600;
+    padding: 5px 3px; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;
+  }
+  .dm-btn:hover { color: var(--text); background: var(--pill-hover); }
+  .dm-btn.active {
+    background: var(--accent); color: #111317; border-color: var(--accent); font-weight: 700;
+  }
+
+  .slider-block { display: flex; flex-direction: column; gap: 4px; }
+  .slider-head {
+    display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);
+  }
+  .slider-head strong { color: var(--text); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .slider-block input[type=range] {
+    width: 100%; accent-color: var(--accent); cursor: pointer; height: 4px;
+  }
+
+  .action-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .act-btn {
+    border: 1px solid var(--border); background: var(--pill-bg); color: var(--text);
+    font-family: inherit; font-size: 11px; font-weight: 700;
+    padding: 7px 5px; border-radius: 9px; cursor: pointer; transition: all 0.16s ease;
+  }
+  .act-btn:hover { background: var(--pill-hover); border-color: var(--accent); }
+  .act-btn.running { background: var(--accent); color: #111317; border-color: var(--accent); }
+  .act-btn.danger.running { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+  /* Right Configurator Panel */
+  .config-panel {
+    position: absolute; right: 16px; top: 66px; width: 248px;
+    max-height: calc(100vh - 86px); overflow-y: auto;
+    padding: 12px 13px; border-radius: 16px; pointer-events: auto;
+    display: flex; flex-direction: column; gap: 10px;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .config-panel::-webkit-scrollbar { width: 4px; }
+  .config-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .config-panel.collapsed {
+    transform: translateX(calc(100% + 28px)); opacity: 0; pointer-events: none;
+  }
+
+  .panel-collapse-toggle {
+    position: absolute; right: 20px; top: 76px; z-index: 12;
+    pointer-events: auto; display: none;
+    padding: 8px 12px; border-radius: 12px; font-size: 12px; font-weight: 700;
+    cursor: pointer; color: var(--text);
+  }
+  .panel-collapse-toggle.visible { display: flex; align-items: center; gap: 6px; }
+
+  .sec-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; font-weight: 700; color: var(--text-muted);
+    letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px;
+  }
+  .sec-close {
+    border: 0; background: transparent; color: var(--text-muted);
+    cursor: pointer; font-size: 13px; padding: 2px 5px; border-radius: 6px;
+  }
+  .sec-close:hover { background: var(--pill-bg); color: var(--text); }
+
+  .paint-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+  }
+  .swatch {
+    position: relative; aspect-ratio: 1; border-radius: 11px; cursor: pointer;
+    border: 2px solid rgba(255, 255, 255, 0.16);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .swatch:hover { transform: translateY(-2px); }
+  .swatch.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(235, 191, 0, 0.38);
+  }
+  .paint-name {
+    font-size: 12px; font-weight: 600; color: var(--text);
+  }
+
+  .toggle-list { display: flex; flex-direction: column; gap: 6px; }
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 10px; border-radius: 10px;
+    background: var(--pill-bg); border: 1px solid var(--border-soft);
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .toggle-row:hover { background: var(--pill-hover); }
+  .switch {
+    width: 34px; height: 19px; border-radius: 999px;
+    background: rgba(128, 134, 145, 0.35); position: relative; transition: background 0.18s ease;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 2.5px; left: 2.5px;
+    width: 14px; height: 14px; border-radius: 50%; background: #fff;
+    transition: transform 0.18s ease;
+  }
+  .toggle-row.on .switch { background: var(--accent); }
+  .toggle-row.on .switch::after { transform: translateX(15px); background: #101216; }
+
+  .cam-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
+  }
+  .cam-btn {
+    border: 1px solid var(--border-soft); background: var(--pill-bg); color: var(--text-muted);
+    font-family: inherit; font-size: 11.5px; font-weight: 600;
+    padding: 7px 8px; border-radius: 9px; cursor: pointer; text-align: left;
+    transition: all 0.15s ease;
+  }
+  .cam-btn:hover { color: var(--text); background: var(--pill-hover); }
+  .cam-btn.active {
+    background: var(--accent-dim); border-color: var(--accent); color: var(--text);
+  }
+  .cam-btn.full { grid-column: span 2; }
+
+  .glb-box {
+    display: flex; flex-direction: column; gap: 6px;
+    padding-top: 4px; border-top: 1px solid var(--border-soft);
+  }
+  .glb-btn {
+    border: 1px dashed var(--border); background: var(--pill-bg); color: var(--text);
+    font-family: inherit; font-size: 11.5px; font-weight: 600;
+    padding: 9px 10px; border-radius: 10px; cursor: pointer; text-align: center;
+    transition: all 0.16s ease;
+  }
+  .glb-btn:hover { border-color: var(--accent); background: var(--pill-hover); }
+  .glb-reset { display: none; border-style: solid; color: #FF7875; }
+  .glb-reset.visible { display: block; }
+
+  /* Bottom-Center Hint */
+  .bottom-hint {
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+    padding: 6px 14px; border-radius: 999px; font-size: 11px; color: var(--text-muted);
+    display: flex; align-items: center; gap: 10px; pointer-events: none;
+    white-space: nowrap;
+  }
+  .bottom-hint b { color: var(--text); font-weight: 600; }
+
+  /* Hotspot 3D Labels */
+  #hotspot-layer {
+    position: fixed; inset: 0; z-index: 8; pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  body.hud-hidden #hotspot-layer { opacity: 0; }
+  .hotspot {
+    position: absolute; transform: translate(-50%, -50%);
+    pointer-events: auto; cursor: pointer;
+    display: flex; align-items: center; gap: 7px;
+    padding: 5px 10px 5px 6px; border-radius: 999px;
+    background: var(--panel-strong); border: 1px solid var(--border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(12px);
+    transition: opacity 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+  }
+  .hotspot:hover { border-color: var(--accent); transform: translate(-50%, -52%) scale(1.03); }
+  .hotspot-dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 3px rgba(235, 191, 0, 0.28); flex-shrink: 0;
+  }
+  .hotspot-title { font-size: 11px; font-weight: 700; color: var(--text); white-space: nowrap; }
+  .hotspot-val {
+    font-size: 10.5px; font-family: var(--font-mono); color: var(--accent);
+    font-weight: 700; white-space: nowrap;
+  }
+  body.theme-light .hotspot-val { color: #9C7800; }
+
+  /* Drag Drop Overlay */
+  #drop-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(11, 13, 18, 0.82); backdrop-filter: blur(10px);
+    display: none; place-items: center; pointer-events: none;
+  }
+  #drop-overlay.visible { display: grid; }
+  .drop-card {
+    border: 2px dashed var(--accent); border-radius: 24px;
+    padding: 44px 56px; text-align: center; background: rgba(20, 24, 34, 0.9);
+    color: #F4F6FA;
+  }
+  .drop-card h2 { font-size: 20px; margin-bottom: 8px; }
+  .drop-card p { font-size: 13px; color: rgba(244, 246, 250, 0.68); }
+
+  /* Physics Modal */
+  #physics-modal {
+    position: fixed; inset: 0; z-index: 40;
+    background: rgba(8, 10, 14, 0.68); backdrop-filter: blur(8px);
+    display: none; place-items: center; padding: 20px;
+  }
+  #physics-modal.visible { display: grid; }
+  .modal-card {
+    width: min(640px, 100%); max-height: 84vh; overflow-y: auto;
+    border-radius: 20px; padding: 22px 24px;
+    background: var(--panel-strong); border: 1px solid var(--border);
+    box-shadow: var(--shadow); color: var(--text);
+  }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft);
+  }
+  .modal-head h3 { font-size: 16px; font-weight: 700; }
+  .modal-close {
+    border: 0; background: var(--pill-bg); color: var(--text);
+    width: 30px; height: 30px; border-radius: 9px; cursor: pointer; font-size: 15px;
+  }
+  .eq-list { display: flex; flex-direction: column; gap: 10px; }
+  .eq-item {
+    padding: 11px 13px; border-radius: 12px;
+    background: var(--pill-bg); border: 1px solid var(--border-soft);
+  }
+  .eq-item h4 { font-size: 12.5px; color: var(--accent); margin-bottom: 4px; }
+  body.theme-light .eq-item h4 { color: #8A6A00; }
+  .eq-item code {
+    display: block; font-family: var(--font-mono); font-size: 11.5px;
+    margin-bottom: 4px; color: var(--text);
+  }
+  .eq-item p { font-size: 12px; color: var(--text-muted); line-height: 1.48; }
+
+  /* Pure mode floating restore button */
+  #restore-hud-btn {
+    position: fixed; top: 16px; right: 20px; z-index: 20;
+    display: none; padding: 8px 14px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; cursor: pointer; color: var(--text);
+  }
+  body.hud-hidden #restore-hud-btn { display: inline-flex; }
+
+  @media (max-width: 1180px) {
+    .topbar { flex-wrap: wrap; }
+  }
+  @media (max-width: 960px) {
+    .telemetry-panel { width: 280px; left: 12px; bottom: 12px; padding: 11px 13px; }
+    .hero-value { font-size: 30px; }
+    .config-panel { width: 226px; right: 12px; top: 108px; }
+    .bottom-hint { display: none; }
+  }
+  @media (max-width: 768px) {
+    .topbar { top: 10px; left: 10px; right: 10px; gap: 6px; }
+    .brand { padding: 6px 10px; }
+    .brand-sub { display: none; }
+    .segmented { overflow-x: auto; max-width: calc(100vw - 20px); }
+    .seg-btn { padding: 5px 9px; font-size: 11px; }
+    .util-bar { overflow-x: auto; max-width: calc(100vw - 20px); }
+    .util-btn { padding: 5px 8px; font-size: 11px; }
+    .telemetry-panel {
+      left: 10px; right: 10px; bottom: 10px; width: auto;
+      padding: 10px 12px; gap: 7px;
+    }
+    .hero-value { font-size: 26px; }
+    .sub-grid { gap: 5px; }
+    .metric { padding: 4px 6px; }
+    .config-panel, .panel-collapse-toggle { top: 104px; right: 10px; }
+    .config-panel { width: 236px; max-height: calc(100vh - 300px); }
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body class="theme-dark">
+<div id="canvas-wrap"></div>
+<div id="hotspot-layer"></div>
+
+<button id="restore-hud-btn" class="glass">显示界面 (H)</button>
+
+<div id="hud">
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="brand glass">
+      <div class="brand-mark">MI</div>
+      <div class="brand-text">
+        <span class="brand-title">XIAOMI EV · SU7 ULTRA</span>
+        <span class="brand-sub">1,548 PS 三电机四驱 · 360° 展厅与工程实验室</span>
+      </div>
+    </div>
+
+    <div class="mode-stack">
+      <div class="segmented glass" id="mode-tabs">
+        <button class="seg-btn active" data-mode="showroom">展厅 Showroom</button>
+        <button class="seg-btn" data-mode="xray">透视 X-Ray</button>
+        <button class="seg-btn" data-mode="explode">拆解 Explode</button>
+        <button class="seg-btn" data-mode="cutaway">剖视 Cutaway</button>
+      </div>
+      <div class="inline-slider glass" id="mode-slider-wrap">
+        <label id="mode-slider-label">拆解程度</label>
+        <input id="mode-slider" type="range" min="0" max="100" value="85" />
+        <span class="val" id="mode-slider-val">85%</span>
+      </div>
+    </div>
+
+    <div class="util-bar glass">
+      <button class="util-btn" id="btn-theme" title="切换影棚环境">环境：暗调展厅</button>
+      <button class="util-btn" id="btn-labels">3D 标注</button>
+      <button class="util-btn" id="btn-aero">气动流线</button>
+      <button class="util-btn" id="btn-equations">物理方程</button>
+      <button class="util-btn" id="btn-hud-hide" title="纯净浏览模式 (快捷键 H)">纯净 H</button>
+    </div>
+  </div>
+
+  <!-- Bottom-Left Telemetry & Simulation Console -->
+  <div class="telemetry-panel glass">
+    <div class="hero-row">
+      <div class="hero-value-wrap">
+        <span class="hero-value" id="hero-power">0</span>
+        <span class="hero-unit">PS</span>
+      </div>
+      <span class="status-pill" id="hero-status">展厅待机 · 897V 就绪</span>
+    </div>
+    <div class="hero-bar-track">
+      <div class="hero-bar-fill" id="hero-bar"></div>
+    </div>
+
+    <div class="sub-grid">
+      <div class="metric">
+        <div class="metric-k">实时车速</div>
+        <div class="metric-v" id="val-speed">0 km/h</div>
+      </div>
+      <div class="metric">
+        <div class="metric-k">V8s 转速</div>
+        <div class="metric-v" id="val-rpm">0 rpm</div>
+      </div>
+      <div class="metric">
+        <div class="metric-k">气动下压力</div>
+        <div class="metric-v" id="val-downforce">0 kgf</div>
+      </div>
+      <div class="metric">
+        <div class="metric-k">碳陶盘温</div>
+        <div class="metric-v" id="val-brake-temp">42 °C</div>
+      </div>
+      <div class="metric">
+        <div class="metric-k">瞬时 G 值</div>
+        <div class="metric-v" id="val-g">0.00 g</div>
+      </div>
+      <div class="metric">
+        <div class="metric-k">电池放电</div>
+        <div class="metric-v" id="val-kw">0 kW</div>
+      </div>
+    </div>
+
+    <div class="drive-modes" id="drive-modes">
+      <button class="dm-btn" data-dmode="novice">新手 900</button>
+      <button class="dm-btn" data-dmode="sport">运动 1150</button>
+      <button class="dm-btn" data-dmode="track">赛道 1400</button>
+      <button class="dm-btn active" data-dmode="qualifying">排位 1548</button>
+    </div>
+
+    <div class="slider-block">
+      <div class="slider-head">
+        <span>巡航目标车速 / 油门负载</span>
+        <strong id="target-speed-val">0 km/h</strong>
+      </div>
+      <input id="speed-slider" type="range" min="0" max="350" value="0" step="1" />
+    </div>
+
+    <div class="action-row">
+      <button class="act-btn" id="btn-launch">弹射加速</button>
+      <button class="act-btn danger" id="btn-brake-test">350→0 急刹</button>
+      <button class="act-btn danger" id="btn-derate">热衰极限</button>
+    </div>
+  </div>
+
+  <!-- Right Configurator Panel -->
+  <button class="panel-collapse-toggle glass" id="btn-open-config">⚙ 外观与视角</button>
+  <div class="config-panel glass" id="config-panel">
+    <div>
+      <div class="sec-head">
+        <span>官方车漆 · <strong id="paint-label" style="color:var(--text)">闪电黄</strong></span>
+        <button class="sec-close" id="btn-close-config" title="收起面板">✕</button>
+      </div>
+      <div class="paint-grid" id="paint-swatches">
+        <button class="swatch active" data-paint="yellow" title="闪电黄" style="background:linear-gradient(135deg,#FFE24A,#C79B00)"></button>
+        <button class="swatch" data-paint="silver" title="太空银" style="background:linear-gradient(135deg,#DFE6EC,#8D98A4)"></button>
+        <button class="swatch" data-paint="white" title="珍珠白" style="background:linear-gradient(135deg,#FFFFFF,#CFD5D4)"></button>
+        <button class="swatch" data-paint="black" title="曜石黑" style="background:linear-gradient(135deg,#353A44,#0A0C10)"></button>
+        <button class="swatch" data-paint="green" title="鹦鹉绿" style="background:linear-gradient(135deg,#479C73,#1B4B34)"></button>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-head"><span>外观与灯光控制</span></div>
+      <div class="toggle-list">
+        <div class="toggle-row on" id="tog-lights"><span>水滴大灯 & 光环尾灯</span><div class="switch"></div></div>
+        <div class="toggle-row on" id="tog-stripe"><span>Ultra 赛道拉花</span><div class="switch"></div></div>
+        <div class="toggle-row on" id="tog-hood"><span>碳纤维双风道机盖</span><div class="switch"></div></div>
+        <div class="toggle-row on" id="tog-wing"><span>1560mm 固定 GT 尾翼</span><div class="switch"></div></div>
+        <div class="toggle-row" id="tog-autorotate"><span>360° 自动缓速环绕</span><div class="switch"></div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-head"><span>360° 精选视角</span></div>
+      <div class="cam-grid" id="cam-presets">
+        <button class="cam-btn active" data-preset="hero">经典 3/4 视角</button>
+        <button class="cam-btn" data-preset="front">低趴前脸</button>
+        <button class="cam-btn" data-preset="side">优雅车侧</button>
+        <button class="cam-btn" data-preset="rear">尾翼扩散器</button>
+        <button class="cam-btn" data-preset="top">气动俯视</button>
+        <button class="cam-btn" data-preset="wheel">碳陶卡钳</button>
+        <button class="cam-btn full" data-preset="powertrain">三电机 & 麒麟电池底盘视角</button>
+      </div>
+    </div>
+
+    <div class="glb-box">
+      <div class="sec-head" style="margin-bottom:2px"><span>自定义真车模型替换</span></div>
+      <input type="file" id="glb-file-input" accept=".glb,.gltf" hidden />
+      <button class="glb-btn" id="btn-upload-glb">拖入或选择 .glb / .gltf 模型</button>
+      <button class="glb-btn glb-reset" id="btn-reset-glb">恢复内置 SU7 Ultra 工程模型</button>
+    </div>
+  </div>
+
+  <!-- Bottom Interaction Hint -->
+  <div class="bottom-hint glass">
+    <span><b>左键拖拽</b> 360° 环绕</span>
+    <span>·</span>
+    <span><b>右键</b> 平移</span>
+    <span>·</span>
+    <span><b>滚轮</b> 缩放细节</span>
+    <span>·</span>
+    <span id="fps-badge">60 fps</span>
+  </div>
+</div>
+
+<!-- Drag & Drop Overlay -->
+<div id="drop-overlay">
+  <div class="drop-card">
+    <h2>释放以加载 3D 车辆模型 (.glb / .gltf)</h2>
+    <p>将自动匹配 5.115 m 车长比例并贴合展厅地面</p>
+  </div>
+</div>
+
+<!-- Physics Equations Modal -->
+<div id="physics-modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>SU7 Ultra 物理求解与工程参数</h3>
+      <button class="modal-close" id="btn-close-modal">✕</button>
+    </div>
+    <div class="eq-list">
+      <div class="eq-item">
+        <h4>1. 三电机联合动力与转速耦合</h4>
+        <code>P_max = 1,138 kW (1,548 PS) · V8s × 2 + V6s × 1 · M_peak = 1,770 N·m</code>
+        <p>双后置 HyperEngine V8s（单台最高 27,200 rpm，减速比 10.62）+ 前置 V6s（21,000 rpm，减速比 8.14），由轮端速度 ω = v / 0.360 m 实时反算真实电机转速。注：为便于肉眼观察旋转，内部转子视觉转速按 1:60 缩放显示，仪表数值为 100% 真实物理值。</p>
+      </div>
+      <div class="eq-item">
+        <h4>2. 空气动力学下压力与风阻</h4>
+        <code>F_down = 0.5 · ρ · C_LA · A · v²  (ρ = 1.225 kg/m³, A = 2.38 m²)</code>
+        <p>装配 1,560 mm 碳纤维固定式 GT 大尾翼与 6 鳍扩散器时（C_LA ≈ 0.483，C_d ≈ 0.255），在 350 km/h 极速下产生 285 kgf 有效下压力；切换电动尾翼时风阻降至 C_d ≈ 0.215。</p>
+      </div>
+      <div class="eq-item">
+        <h4>3. 纵向动力学与弹射时间</h4>
+        <code>a = (min(F_traction, P / v) - F_drag - F_roll) / m  (m = 2,360 kg)</code>
+        <p>点击「弹射加速」将在四驱扭矩矢量牵引力模型下从静止全力加速至 350 km/h，并实时记录模拟 0–100 km/h 与 0–200 km/h 成绩。</p>
+      </div>
+      <div class="eq-item">
+        <h4>4. 430 mm 碳陶制动热力学与黑体辐射</h4>
+        <code>ΔE_kin = 0.5 · m · v² → ΔT_disc = Q_absorbed / (4 · m_disc · c_p)</code>
+        <p>「350→0 急刹」将约 11.1 MJ 动能瞬时转化为前 430 mm / 后 410 mm 碳陶盘热能，盘温急剧攀升至 ~1,080 °C，并通过黑体辐射色温映射实时点亮制动盘炽红热辉光。</p>
+      </div>
+      <div class="eq-item">
+        <h4>5. 高负荷热衰退保护机制</h4>
+        <code>P_limit = P_mode · clamp(1 - 0.32 · max(0, (T_bat - 52)/12), 0.65, 1)</code>
+        <p>激活「热衰极限」后，CATL 麒麟 II 高功率电池包与定子绕组持续升温，求解器触发线性功率保护降额并切入警示状态。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// === src/01-materials.js ===
+// Seeded deterministic PRNG
+function createRng(seed = 1337) {
+  let s = seed >>> 0 || 1;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+function makeCanvasTexture(size, drawFn, { repeat = [1, 1], color = false, anisotropy = 8 } = {}) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  drawFn(ctx, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeat[0], repeat[1]);
+  tex.anisotropy = anisotropy;
+  tex.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  return tex;
+}
+
+function buildProceduralTextures() {
+  const R = createRng(202502);
+
+  // 1. 2x2 Twill Carbon Fiber Weave (color + bump/roughness)
+  const carbonColor = makeCanvasTexture(512, (ctx, S) => {
+    ctx.fillStyle = '#0d0e11';
+    ctx.fillRect(0, 0, S, S);
+    const cells = 32;
+    const w = S / cells;
+    for (let y = 0; y < cells; y++) {
+      for (let x = 0; x < cells; x++) {
+        // 2x2 diagonal twill pattern
+        const phase = (x + y) % 4;
+        const horiz = phase < 2;
+        const grad = horiz
+          ? ctx.createLinearGradient(x * w, 0, x * w + w, 0)
+          : ctx.createLinearGradient(0, y * w, 0, y * w + w);
+        grad.addColorStop(0, '#0a0b0d');
+        grad.addColorStop(0.5, horiz ? '#363a42' : '#25282e');
+        grad.addColorStop(1, '#0a0b0d');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x * w, y * w, w, w);
+      }
+    }
+  }, { repeat: [6, 6], color: true });
+
+  const carbonRough = makeCanvasTexture(512, (ctx, S) => {
+    ctx.fillStyle = '#606060';
+    ctx.fillRect(0, 0, S, S);
+    const cells = 32;
+    const w = S / cells;
+    for (let y = 0; y < cells; y++) {
+      for (let x = 0; x < cells; x++) {
+        const horiz = ((x + y) % 4) < 2;
+        ctx.fillStyle = horiz ? '#3c3c3c' : '#7a7a7a';
+        ctx.fillRect(x * w + 0.5, y * w + 0.5, w - 1, w - 1);
+      }
+    }
+  }, { repeat: [6, 6], color: false });
+
+  // 2. Cross-drilled Carbon-Ceramic Rotor texture (polar radial + drilled slots)
+  const ceramicRotor = makeCanvasTexture(512, (ctx, S) => {
+    const cx = S / 2;
+    const cy = S / 2;
+    ctx.fillStyle = '#383a3e';
+    ctx.fillRect(0, 0, S, S);
+
+    // Concentric subtle scoring rings
+    for (let r = 90; r < 252; r += 2) {
+      const v = 50 + Math.floor(R() * 26);
+      ctx.strokeStyle = `rgb(${v},${v},${v + 2})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Subtle carbon-ceramic fibrous fleck
+    for (let i = 0; i < 1800; i++) {
+      const a = R() * Math.PI * 2;
+      const r = 105 + R() * 142;
+      const v = 40 + Math.floor(R() * 48);
+      ctx.fillStyle = `rgba(${v},${v},${v},0.45)`;
+      ctx.fillRect(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 2, 2);
+    }
+
+    // Curved cross-drilled cooling holes (32 spirals x 4 holes)
+    ctx.fillStyle = '#121316';
+    const arms = 28;
+    for (let i = 0; i < arms; i++) {
+      const baseA = (i / arms) * Math.PI * 2;
+      for (let k = 0; k < 4; k++) {
+        const rr = 122 + k * 32;
+        const aa = baseA + k * 0.085;
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(aa) * rr, cy + Math.sin(aa) * rr, 4.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }, { repeat: [1, 1], color: true });
+
+  // 3. Brushed Aluminum / Metal anisotropic streaks
+  const brushedMetal = makeCanvasTexture(512, (ctx, S) => {
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, S, S);
+    for (let i = 0; i < 2400; i++) {
+      const v = 96 + Math.floor(R() * 68);
+      ctx.fillStyle = `rgba(${v},${v},${v},0.32)`;
+      ctx.fillRect(R() * S, R() * S, 24 + R() * 180, 1);
+    }
+  }, { repeat: [2, 2], color: false });
+
+  // 4. Tire Tread Pattern
+  const tireTread = makeCanvasTexture(512, (ctx, S) => {
+    ctx.fillStyle = '#191b1e';
+    ctx.fillRect(0, 0, S, S);
+    // Longitudinal circumferential water channels
+    ctx.fillStyle = '#0c0d0f';
+    [0.24, 0.42, 0.58, 0.76].forEach((u) => {
+      ctx.fillRect(u * S - 7, 0, 14, S);
+    });
+    // Diagonal shoulder sipes
+    ctx.strokeStyle = '#0c0d0f';
+    ctx.lineWidth = 6;
+    for (let y = -S; y < S * 2; y += 32) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(S * 0.22, y + 26);
+      ctx.moveTo(S, y);
+      ctx.lineTo(S * 0.78, y + 26);
+      ctx.stroke();
+    }
+  }, { repeat: [1, 14], color: true });
+
+  // 5. Metallic paint micro-flake roughness
+  const paintFlake = makeCanvasTexture(256, (ctx, S) => {
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, S, S);
+    for (let i = 0; i < 4500; i++) {
+      const v = 114 + Math.floor(R() * 32);
+      ctx.fillStyle = `rgb(${v},${v},${v})`;
+      ctx.fillRect(R() * S, R() * S, 1.5, 1.5);
+    }
+  }, { repeat: [8, 8], color: false });
+
+  // 6. Hexagonal Grille Texture
+  const hexGrille = makeCanvasTexture(256, (ctx, S) => {
+    ctx.fillStyle = '#090a0c';
+    ctx.fillRect(0, 0, S, S);
+    ctx.strokeStyle = '#2c3038';
+    ctx.lineWidth = 3;
+    const rad = 14;
+    const dx = rad * 1.5;
+    const dy = rad * Math.sqrt(3);
+    for (let col = -1; col < S / dx + 2; col++) {
+      for (let row = -1; row < S / dy + 2; row++) {
+        const cx = col * dx;
+        const cy = row * dy + (col % 2 ? dy / 2 : 0);
+        ctx.beginPath();
+        for (let k = 0; k < 6; k++) {
+          const a = (k * Math.PI) / 3;
+          const px = cx + Math.cos(a) * (rad - 1.5);
+          const py = cy + Math.sin(a) * (rad - 1.5);
+          if (k === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+    }
+  }, { repeat: [10, 3], color: true });
+
+  return {
+    carbonColor,
+    carbonRough,
+    ceramicRotor,
+    brushedMetal,
+    tireTread,
+    paintFlake,
+    hexGrille,
+  };
+}
+
+const SU7_PAINTS = {
+  yellow: {
+    label: '闪电黄',
+    color: '#EBBF00',
+    metalness: 0.36,
+    roughness: 0.19,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.05,
+    stripeColor: '#14161A',
+    accent: '#EBBF00',
+  },
+  silver: {
+    label: '太空银',
+    color: '#B6C0CA',
+    metalness: 0.84,
+    roughness: 0.18,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.045,
+    stripeColor: '#1A1D22',
+    accent: '#D5DEE6',
+  },
+  white: {
+    label: '珍珠白',
+    color: '#E8ECEB',
+    metalness: 0.22,
+    roughness: 0.17,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.045,
+    stripeColor: '#191C22',
+    accent: '#F4F6FA',
+  },
+  black: {
+    label: '曜石黑',
+    color: '#13161B',
+    metalness: 0.56,
+    roughness: 0.16,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.04,
+    stripeColor: '#D9B126',
+    accent: '#EBBF00',
+  },
+  green: {
+    label: '鹦鹉绿',
+    color: '#2A6E4E',
+    metalness: 0.62,
+    roughness: 0.19,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.05,
+    stripeColor: '#EBBF00',
+    accent: '#49A87B',
+  },
+};
+
+// Shared Cutaway Clipping Plane (active only on exterior materials)
+const cutawayPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 10);
+
+function blackbodyColor(kelvin) {
+  const T = Math.min(2400, Math.max(600, kelvin));
+  if (T < 760) {
+    const f = Math.max(0, (T - 640) / 120);
+    return new THREE.Color(f * 0.42, 0.015 * f, 0);
+  }
+  const t = T / 100;
+  let r, g, b;
+  if (t <= 66) {
+    r = 255;
+    g = Math.max(0, 99.47 * Math.log(t) - 161.12);
+    b = t <= 19 ? 0 : Math.max(0, 138.52 * Math.log(t - 10) - 305.04);
+  } else {
+    r = 255;
+    g = 220;
+    b = 180;
+  }
+  const scale = Math.min(2.4, (T - 680) / 360);
+  return new THREE.Color((r / 255) * scale, (g / 255) * scale, (b / 255) * scale);
+}
+
+function createMaterialsLibrary() {
+  const tex = buildProceduralTextures();
+
+  const bodyPaint = new THREE.MeshPhysicalMaterial({
+    color: SU7_PAINTS.yellow.color,
+    metalness: SU7_PAINTS.yellow.metalness,
+    roughness: SU7_PAINTS.yellow.roughness,
+    roughnessMap: tex.paintFlake,
+    clearcoat: SU7_PAINTS.yellow.clearcoat,
+    clearcoatRoughness: SU7_PAINTS.yellow.clearcoatRoughness,
+    envMapIntensity: 1.45,
+  });
+
+  const bodyPaintSecondary = new THREE.MeshPhysicalMaterial({
+    color: SU7_PAINTS.yellow.color,
+    metalness: SU7_PAINTS.yellow.metalness,
+    roughness: SU7_PAINTS.yellow.roughness,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.05,
+    envMapIntensity: 1.4,
+  });
+
+  const stripeMat = new THREE.MeshPhysicalMaterial({
+    color: SU7_PAINTS.yellow.stripeColor,
+    metalness: 0.25,
+    roughness: 0.22,
+    clearcoat: 0.85,
+    clearcoatRoughness: 0.08,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+
+  const carbon = new THREE.MeshPhysicalMaterial({
+    color: '#ffffff',
+    map: tex.carbonColor,
+    roughnessMap: tex.carbonRough,
+    metalness: 0.14,
+    roughness: 0.34,
+    clearcoat: 0.92,
+    clearcoatRoughness: 0.10,
+    envMapIntensity: 1.25,
+  });
+
+  const carbonMatte = new THREE.MeshStandardMaterial({
+    color: '#d8dce2',
+    map: tex.carbonColor,
+    roughnessMap: tex.carbonRough,
+    metalness: 0.12,
+    roughness: 0.56,
+  });
+
+  const glossBlack = new THREE.MeshPhysicalMaterial({
+    color: '#0e1014',
+    metalness: 0.15,
+    roughness: 0.12,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.05,
+    envMapIntensity: 1.35,
+  });
+
+  const matteTrim = new THREE.MeshStandardMaterial({
+    color: '#17191f',
+    metalness: 0.08,
+    roughness: 0.72,
+  });
+
+  const hexMesh = new THREE.MeshStandardMaterial({
+    color: '#1a1d22',
+    map: tex.hexGrille,
+    metalness: 0.5,
+    roughness: 0.45,
+  });
+
+  const cabinGlass = new THREE.MeshPhysicalMaterial({
+    color: '#0b1119',
+    metalness: 0.04,
+    roughness: 0.14,
+    transmission: 0.34,
+    transparent: true,
+    opacity: 0.84,
+    ior: 1.50,
+    thickness: 0.015,
+    clearcoat: 0.45,
+    clearcoatRoughness: 0.14,
+    envMapIntensity: 0.85,
+  });
+
+  const headlightGlass = new THREE.MeshPhysicalMaterial({
+    color: '#eef6ff',
+    metalness: 0.0,
+    roughness: 0.05,
+    transparent: true,
+    opacity: 0.28,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.02,
+    depthWrite: false,
+  });
+
+  const taillightLens = new THREE.MeshPhysicalMaterial({
+    color: '#2a0508',
+    metalness: 0.1,
+    roughness: 0.08,
+    transparent: true,
+    opacity: 0.56,
+    clearcoat: 1.0,
+  });
+
+  const drlLed = new THREE.MeshStandardMaterial({
+    color: '#ffffff',
+    emissive: '#e8f4ff',
+    emissiveIntensity: 3.1,
+    roughness: 0.15,
+    metalness: 0.0,
+  });
+
+  const headlightBeam = new THREE.MeshStandardMaterial({
+    color: '#f4f8ff',
+    emissive: '#d8ecff',
+    emissiveIntensity: 2.5,
+    roughness: 0.2,
+  });
+
+  const haloTailLed = new THREE.MeshStandardMaterial({
+    color: '#ff1f2d',
+    emissive: '#ff1022',
+    emissiveIntensity: 3.8,
+    roughness: 0.18,
+  });
+
+  const f1BrakeLed = new THREE.MeshStandardMaterial({
+    color: '#ff2424',
+    emissive: '#ff1515',
+    emissiveIntensity: 3.6,
+    roughness: 0.2,
+  });
+
+  const goldBadge = new THREE.MeshStandardMaterial({
+    color: '#F2C94C',
+    metalness: 0.96,
+    roughness: 0.16,
+    envMapIntensity: 1.5,
+  });
+
+  // Wheels, Tires & Brakes
+  const tireRubber = new THREE.MeshStandardMaterial({
+    color: '#1b1d21',
+    map: tex.tireTread,
+    metalness: 0.03,
+    roughness: 0.84,
+  });
+
+  const tireSidewall = new THREE.MeshStandardMaterial({
+    color: '#16181c',
+    metalness: 0.04,
+    roughness: 0.78,
+  });
+
+  const forgedWheel = new THREE.MeshStandardMaterial({
+    color: '#20242d',
+    metalness: 0.88,
+    roughness: 0.26,
+    envMapIntensity: 1.25,
+    side: THREE.DoubleSide,
+  });
+
+  const machinedAlloy = new THREE.MeshStandardMaterial({
+    color: '#cfd5de',
+    metalness: 0.94,
+    roughness: 0.18,
+    envMapIntensity: 1.4,
+  });
+
+  const caliperYellow = new THREE.MeshPhysicalMaterial({
+    color: '#F2C400',
+    metalness: 0.35,
+    roughness: 0.22,
+    clearcoat: 0.9,
+    clearcoatRoughness: 0.08,
+  });
+
+  const brakeRotor = new THREE.MeshStandardMaterial({
+    color: '#484b52',
+    map: tex.ceramicRotor,
+    metalness: 0.42,
+    roughness: 0.52,
+    emissive: new THREE.Color(0, 0, 0),
+    emissiveIntensity: 1.0,
+  });
+
+  // Internal Mechanical Hardware
+  const castAlu = new THREE.MeshStandardMaterial({
+    color: '#9aa2ad',
+    roughnessMap: tex.brushedMetal,
+    metalness: 0.86,
+    roughness: 0.34,
+  });
+
+  const darkCastAlu = new THREE.MeshStandardMaterial({
+    color: '#464d57',
+    roughnessMap: tex.brushedMetal,
+    metalness: 0.82,
+    roughness: 0.38,
+  });
+
+  const copperWinding = new THREE.MeshStandardMaterial({
+    color: '#cc6830',
+    metalness: 0.92,
+    roughness: 0.22,
+  });
+
+  const siliconSteel = new THREE.MeshStandardMaterial({
+    color: '#5a6270',
+    metalness: 0.88,
+    roughness: 0.26,
+  });
+
+  const hvOrange = new THREE.MeshStandardMaterial({
+    color: '#FF5A00',
+    metalness: 0.08,
+    roughness: 0.42,
+  });
+
+  const batteryShell = new THREE.MeshStandardMaterial({
+    color: '#6e7886',
+    roughnessMap: tex.brushedMetal,
+    metalness: 0.85,
+    roughness: 0.32,
+  });
+
+  const batteryCell = new THREE.MeshStandardMaterial({
+    color: '#255e6e',
+    metalness: 0.62,
+    roughness: 0.34,
+  });
+
+  const coolantPipe = new THREE.MeshStandardMaterial({
+    color: '#bfc7d1',
+    metalness: 0.92,
+    roughness: 0.22,
+  });
+
+  const suspensionSpring = new THREE.MeshStandardMaterial({
+    color: '#EBBF00',
+    metalness: 0.32,
+    roughness: 0.28,
+  });
+
+  const interiorAlcantara = new THREE.MeshStandardMaterial({
+    color: '#1b1d22',
+    metalness: 0.04,
+    roughness: 0.88,
+  });
+
+  const seatYellowAccent = new THREE.MeshStandardMaterial({
+    color: '#E5B800',
+    metalness: 0.08,
+    roughness: 0.65,
+  });
+
+  const screenGlow = new THREE.MeshStandardMaterial({
+    color: '#18344c',
+    emissive: '#38bdf8',
+    emissiveIntensity: 0.9,
+    roughness: 0.15,
+  });
+
+  // X-Ray translucent Fresnel-style ghost shell
+  const xrayShellMat = new THREE.MeshPhysicalMaterial({
+    color: '#55D6FF',
+    emissive: '#0B3B59',
+    emissiveIntensity: 0.55,
+    metalness: 0.12,
+    roughness: 0.16,
+    transparent: true,
+    opacity: 0.15,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+
+  const xrayGlassMat = new THREE.MeshPhysicalMaterial({
+    color: '#9BE7FF',
+    emissive: '#0F4D73',
+    emissiveIntensity: 0.35,
+    metalness: 0.05,
+    roughness: 0.1,
+    transparent: true,
+    opacity: 0.09,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+
+  // Registry of exterior materials that receive the cutaway clipping plane
+  const EXTERIOR_CLIP_MATS = [
+    bodyPaint,
+    bodyPaintSecondary,
+    stripeMat,
+    carbon,
+    carbonMatte,
+    glossBlack,
+    matteTrim,
+    hexMesh,
+    cabinGlass,
+    headlightGlass,
+    taillightLens,
+    drlLed,
+    headlightBeam,
+    haloTailLed,
+    f1BrakeLed,
+    goldBadge,
+  ];
+
+  function setCutawayActive(active, cutX) {
+    cutawayPlane.constant = cutX;
+    for (const m of EXTERIOR_CLIP_MATS) {
+      m.clippingPlanes = active ? [cutawayPlane] : null;
+      m.clipShadows = active;
+      if (!m._origSide) m._origSide = m.side;
+      m.side = active ? THREE.DoubleSide : m._origSide;
+      m.needsUpdate = true;
+    }
+  }
+
+  return {
+    bodyPaint,
+    bodyPaintSecondary,
+    stripeMat,
+    carbon,
+    carbonMatte,
+    glossBlack,
+    matteTrim,
+    hexMesh,
+    cabinGlass,
+    headlightGlass,
+    taillightLens,
+    drlLed,
+    headlightBeam,
+    haloTailLed,
+    f1BrakeLed,
+    goldBadge,
+    tireRubber,
+    tireSidewall,
+    forgedWheel,
+    machinedAlloy,
+    caliperYellow,
+    brakeRotor,
+    castAlu,
+    darkCastAlu,
+    copperWinding,
+    siliconSteel,
+    hvOrange,
+    batteryShell,
+    batteryCell,
+    coolantPipe,
+    suspensionSpring,
+    interiorAlcantara,
+    seatYellowAccent,
+    screenGlow,
+    xrayShellMat,
+    xrayGlassMat,
+    setCutawayActive,
+  };
+}
+
+
+// === src/02-car-body.js ===
+// Parametric surface lofting & exterior body assembly for Xiaomi SU7 Ultra
+// Frame: Y-up, +Z = Front, -Z = Rear, floor at y = 0
+// Dimensions: Length 5.115 m, Width 1.970 m, Height 1.465 m, Wheelbase 3.000 m
+
+function clampNum(v, lo, hi) {
+  return Math.min(hi, Math.max(lo, v));
+}
+
+function smoothStepNum(edge0, edge1, x) {
+  const t = clampNum((x - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+// Build symmetric left (+X) & right (-X) lofted meshes from an array of stations:
+// stations = [{ z, pts: [[x, y], ...] }] ordered FRONT (+Z) -> REAR (-Z)
+// Each station's pts must be ordered from LOWER/OUTER edge -> UPPER/INNER centerline (x >= 0)
+function buildSymmetricLoftGeometry(stations, { mirror = true } = {}) {
+  const nZ = stations.length;
+  const nP = stations[0].pts.length;
+  const vertCountPerSide = nZ * nP;
+  const sideCount = mirror ? 2 : 1;
+
+  const positions = new Float32Array(vertCountPerSide * sideCount * 3);
+  const uvs = new Float32Array(vertCountPerSide * sideCount * 2);
+  const indices = [];
+
+  // +X side vertices
+  for (let i = 0; i < nZ; i++) {
+    const st = stations[i];
+    for (let j = 0; j < nP; j++) {
+      const idx = i * nP + j;
+      const [x, y] = st.pts[j];
+      positions[idx * 3] = x;
+      positions[idx * 3 + 1] = y;
+      positions[idx * 3 + 2] = st.z;
+      uvs[idx * 2] = (st.z + 2.6) * 0.35;
+      uvs[idx * 2 + 1] = (j / (nP - 1)) * 1.4;
+    }
+  }
+
+  // +X triangles: stations front->rear (-Z), pts bottom->top (+Y/inward -X) => outward normal
+  for (let i = 0; i < nZ - 1; i++) {
+    for (let j = 0; j < nP - 1; j++) {
+      const a = i * nP + j;
+      const b = (i + 1) * nP + j;
+      const c = (i + 1) * nP + (j + 1);
+      const d = i * nP + (j + 1);
+      indices.push(a, b, d);
+      indices.push(b, c, d);
+    }
+  }
+
+  if (mirror) {
+    const offset = vertCountPerSide;
+    for (let i = 0; i < nZ; i++) {
+      const st = stations[i];
+      for (let j = 0; j < nP; j++) {
+        const idx = offset + i * nP + j;
+        const [x, y] = st.pts[j];
+        positions[idx * 3] = -x;
+        positions[idx * 3 + 1] = y;
+        positions[idx * 3 + 2] = st.z;
+        uvs[idx * 2] = (st.z + 2.6) * 0.35;
+        uvs[idx * 2 + 1] = (j / (nP - 1)) * 1.4;
+      }
+    }
+    // Reversed winding for -X side so normals face outward
+    for (let i = 0; i < nZ - 1; i++) {
+      for (let j = 0; j < nP - 1; j++) {
+        const a = offset + i * nP + j;
+        const b = offset + (i + 1) * nP + j;
+        const c = offset + (i + 1) * nP + (j + 1);
+        const d = offset + i * nP + (j + 1);
+        indices.push(a, d, b);
+        indices.push(b, d, c);
+      }
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// Create dense z-sampling list concentrating around wheel arches (z = +1.50 & -1.50)
+function buildBodyZStations() {
+  const zs = [];
+  const addRange = (zStart, zEnd, step) => {
+    for (let z = zStart; z > zEnd + 1e-5; z -= step) {
+      zs.push(Number(z.toFixed(4)));
+    }
+  };
+  addRange(2.47, 1.94, 0.065);
+  addRange(1.94, 1.06, 0.032); // Dense across front wheel arch
+  addRange(1.06, -1.06, 0.12);
+  addRange(-1.06, -1.94, 0.032); // Dense across rear wheel arch
+  addRange(-1.94, -2.44, 0.065);
+  zs.push(-2.46);
+  return zs;
+}
+
+// Continuous SU7 Ultra body cross-section sampler (lower body + fenders + rear deck)
+function sampleSU7LowerBody(z) {
+  // Half-width profile along car length
+  const noseTaper = smoothStepNum(2.48, 1.85, z); // 0 at tip, 1 by front wheel
+  const tailTaper = smoothStepNum(-2.48, -1.78, z); // 0 at tail, 1 by rear haunch
+  const frontFlare = Math.exp(-Math.pow((z - 1.50) / 0.36, 2)) * 0.028;
+  const rearHaunch = Math.exp(-Math.pow((z + 1.44) / 0.56, 2)) * 0.052;
+  const doorWaistPinch = Math.exp(-Math.pow((z - 0.05) / 0.68, 2)) * 0.022;
+
+  const halfWMax =
+    (0.66 + 0.285 * noseTaper) * (0.83 + 0.17 * tailTaper) +
+    frontFlare +
+    rearHaunch -
+    doorWaistPinch;
+
+  // Bottom sill height
+  let ySill = 0.145;
+  if (z > 2.05) ySill = 0.145 + smoothStepNum(2.05, 2.48, z) * 0.045;
+  if (z < -1.95) ySill = 0.145 + smoothStepNum(-1.95, -2.46, z) * 0.165;
+
+  // Beltline / shoulder height (SU7 rises toward rear wide haunch)
+  let yBelt = 0.875;
+  if (z >= 0.90) {
+    // Sloping front fenders toward nose
+    const t = (z - 0.90) / (2.47 - 0.90);
+    yBelt = 0.875 - 0.375 * Math.pow(t, 1.35);
+  } else if (z >= -1.10) {
+    // Sleek rising waist line across doors
+    const t = (0.90 - z) / 2.00;
+    yBelt = 0.875 + 0.095 * smoothStepNum(0, 1, t);
+  } else {
+    // Muscular rear shoulder tapering slightly to rear halo tail
+    const t = (-1.10 - z) / 1.36;
+    yBelt = 0.970 + Math.sin(t * Math.PI * 0.5) * 0.032 - t * 0.035;
+  }
+
+  // Wheel-arch cutout calculation
+  let archCutY = ySill;
+  let archOutFlare = 0;
+  const fDist = Math.abs(z - 1.50);
+  if (fDist < 0.405) {
+    const h = 0.360 + Math.sqrt(Math.max(0, 0.405 * 0.405 - fDist * fDist));
+    archCutY = Math.max(archCutY, h);
+    archOutFlare = 0.014 * (1 - fDist / 0.405);
+  }
+  const rDist = Math.abs(z + 1.50);
+  if (rDist < 0.408) {
+    const h = 0.360 + Math.sqrt(Math.max(0, 0.408 * 0.408 - rDist * rDist));
+    archCutY = Math.max(archCutY, h);
+    archOutFlare = 0.018 * (1 - rDist / 0.408);
+  }
+
+  // Crown inner edge where greenhouse or hood meets body flank
+  let xInner = halfWMax * 0.68;
+  let yCrown = yBelt + 0.03;
+  if (z > 0.90) {
+    // Front fenders frame the central clamshell hood at x ~ 0.56..0.44
+    const t = (z - 0.90) / 1.57;
+    xInner = (0.64 - 0.16 * t) * (0.88 + 0.12 * noseTaper);
+    yCrown = yBelt + 0.025 * (1 - t);
+  } else if (z >= -1.85) {
+    // Cabin beltline shelf tucking under side glass
+    xInner = halfWMax * 0.785;
+    yCrown = yBelt + 0.02;
+  } else {
+    // Rear decklid spans all the way to x = 0
+    xInner = 0.0;
+    const t = (-1.85 - z) / 0.61;
+    yCrown = 1.028 - 0.022 * t + Math.exp(-Math.pow((z + 2.34) / 0.12, 2)) * 0.015;
+  }
+
+  const xLow = halfWMax * 0.90 + archOutFlare;
+  const xMid = halfWMax + archOutFlare;
+  const xHip = halfWMax * 0.965 + archOutFlare * 0.5;
+
+  const y1 = archCutY;
+  const y2 = y1 + (yBelt - y1) * 0.30;
+  const y3 = y1 + (yBelt - y1) * 0.68;
+  const y4 = yBelt;
+
+  return {
+    z,
+    pts: [
+      [xLow - 0.035, y1],
+      [xLow, y1 + 0.012],
+      [xMid, y2],
+      [xMid * 0.99, y3],
+      [xHip, y4],
+      [(xHip + xInner) * 0.5, (y4 + yCrown) * 0.5 + 0.012],
+      [xInner, yCrown],
+    ],
+  };
+}
+
+// Build closed front & rear bumper caps smoothly tapering into sculpted fascia
+function buildEndBumperFascia(zTip, stations, isFront) {
+  const st = isFront ? stations[0] : stations[stations.length - 1];
+  const zNose = isFront ? st.z + 0.045 : st.z - 0.035;
+  const s0 = { z: st.z, pts: st.pts.map(([x, y]) => [x, y]) };
+  const sMid = {
+    z: (st.z + zNose) * 0.5,
+    pts: st.pts.map(([x, y], j) => [
+      x * 0.64,
+      isFront ? (j >= 4 ? y - 0.025 : y + 0.01) : y,
+    ]),
+  };
+  const sTip = {
+    z: zNose,
+    pts: st.pts.map(([, y], j) => [
+      0,
+      isFront ? (j >= 4 ? y - 0.055 : y + 0.02) : y - 0.01,
+    ]),
+  };
+  const ordered = isFront ? [sTip, sMid, s0] : [s0, sMid, sTip];
+  return buildSymmetricLoftGeometry(ordered, { mirror: true });
+}
+
+// Build smooth clamshell front hood anchored directly onto body fender crown edge
+function buildHoodGeometry(withDucts) {
+  const zs = [];
+  for (let z = 2.46; z >= 0.90; z -= 0.06) zs.push(Number(z.toFixed(4)));
+  const stations = zs.map((z) => {
+    const t = (z - 0.90) / (2.46 - 0.90);
+    const bodySt = sampleSU7LowerBody(Math.min(2.47, z));
+    const crownPt = bodySt.pts[bodySt.pts.length - 1];
+    const edgeW = crownPt[0] + 0.010; // overlap 1cm under fender lip for seamless fit
+    const yEdge = crownPt[1] - 0.004;
+    const yCenter = yEdge + 0.048 * (1 - t * 0.45);
+
+    const pts = [];
+    const steps = 10;
+    for (let s = 0; s <= steps; s++) {
+      const f = s / steps; // 0 = outer edge, 1 = centerline x=0
+      const x = edgeW * (1 - f);
+      let y = yEdge + (yCenter - yEdge) * Math.sin(f * Math.PI * 0.5);
+      y += 0.014 * Math.exp(-Math.pow((f - 0.28) / 0.14, 2)) * (1 - t * 0.4);
+      if (withDucts) {
+        const zDuct = Math.exp(-Math.pow((z - 1.78) / 0.24, 2));
+        const xDuct = Math.exp(-Math.pow((x - 0.27) / 0.092, 2));
+        y -= 0.042 * zDuct * xDuct;
+      }
+      pts.push([x, y]);
+    }
+    return { z, pts };
+  });
+  return buildSymmetricLoftGeometry(stations, { mirror: true });
+}
+
+// Build sleek fastback greenhouse (windshield, roof, rear fastback glass & side windows)
+function buildCanopyParts(mats) {
+  const group = new THREE.Group();
+  group.name = 'CanopyGroup';
+  group.userData.explodeOffset = new THREE.Vector3(0, 1.05, -0.05);
+  group.userData.isExterior = true;
+
+  // Profile curves along z from +0.94 (windshield base) to -1.92 (rear glass tail)
+  const canopyZ = [];
+  for (let z = 0.94; z >= -1.90; z -= 0.08) canopyZ.push(Number(z.toFixed(4)));
+
+  function sampleRoofY(z) {
+    if (z > 0.24) {
+      // Windshield ramp up from (0.94, 0.89) to (0.24, 1.42)
+      const u = (0.94 - z) / 0.70;
+      return 0.89 + 0.53 * Math.pow(u, 0.76);
+    }
+    if (z >= -0.45) {
+      // Gently arched roof apex at y = 1.465
+      const u = (z + 0.10) / 0.35;
+      return 1.465 - 0.042 * u * u;
+    }
+    // Fastback roofline sweeping smoothly to rear decklid (-1.90, 1.03)
+    const u = (-0.45 - z) / 1.45;
+    return 1.43 - 0.40 * Math.pow(u, 1.32);
+  }
+
+  function sampleRoofHalfW(z) {
+    if (z > 0.24) {
+      const u = (0.94 - z) / 0.70;
+      return 0.72 - 0.14 * u;
+    }
+    if (z >= -0.55) {
+      return 0.58 - 0.03 * Math.pow((z + 0.15) / 0.40, 2);
+    }
+    const u = (-0.55 - z) / 1.35;
+    return 0.56 - 0.11 * u;
+  }
+
+  // 1. Center Greenhouse Glass + Roof Shell (from outer side rail up to x=0)
+  const roofStations = canopyZ.map((z) => {
+    const yTop = sampleRoofY(z);
+    const wTop = sampleRoofHalfW(z);
+    const yRail = yTop - 0.025;
+    return {
+      z,
+      pts: [
+        [wTop, yRail],
+        [wTop * 0.66, yTop - 0.008],
+        [wTop * 0.33, yTop - 0.002],
+        [0, yTop],
+      ],
+    };
+  });
+
+  // Split glass (windshield + rear glass) vs carbon roof center
+  const windStations = roofStations.filter((s) => s.z >= 0.20);
+  const midRoofStations = roofStations.filter((s) => s.z <= 0.28 && s.z >= -0.68);
+  const rearGlassStations = roofStations.filter((s) => s.z <= -0.60);
+
+  const windMesh = new THREE.Mesh(buildSymmetricLoftGeometry(windStations), mats.cabinGlass);
+  windMesh.name = 'WindshieldGlass';
+  windMesh.userData.isExterior = true;
+
+  const carbonRoofMesh = new THREE.Mesh(buildSymmetricLoftGeometry(midRoofStations), mats.carbon);
+  carbonRoofMesh.name = 'CarbonRoof';
+  carbonRoofMesh.userData.isExterior = true;
+  carbonRoofMesh.castShadow = true;
+
+  const rearGlassMesh = new THREE.Mesh(buildSymmetricLoftGeometry(rearGlassStations), mats.cabinGlass);
+  rearGlassMesh.name = 'RearFastbackGlass';
+  rearGlassMesh.userData.isExterior = true;
+
+  // 2. Side Windows & Gloss-Black C/A Pillar Trim Frame
+  const sideWinStations = canopyZ.map((z) => {
+    const bodySt = sampleSU7LowerBody(z);
+    const beltPt = bodySt.pts[bodySt.pts.length - 1];
+    const yTop = sampleRoofY(z) - 0.022;
+    const wTop = sampleRoofHalfW(z);
+    return {
+      z,
+      pts: [
+        [beltPt[0], beltPt[1] - 0.005],
+        [(beltPt[0] + wTop) * 0.52, (beltPt[1] + yTop) * 0.5 + 0.015],
+        [wTop, yTop],
+      ],
+    };
+  });
+
+  const sideWinMesh = new THREE.Mesh(buildSymmetricLoftGeometry(sideWinStations), mats.cabinGlass);
+  sideWinMesh.name = 'SideWindows';
+  sideWinMesh.userData.isExterior = true;
+
+  // A-pillar, roof cantrail & C-pillar arch trim
+  for (const side of [1, -1]) {
+    const railPts = canopyZ.map((z) => {
+      const yTop = sampleRoofY(z) - 0.020;
+      const wTop = sampleRoofHalfW(z);
+      return new THREE.Vector3(side * wTop, yTop, z);
+    });
+    const railCurve = new THREE.CatmullRomCurve3(railPts);
+    const railGeo = new THREE.TubeGeometry(railCurve, 36, 0.022, 8, false);
+    const railMesh = new THREE.Mesh(railGeo, mats.glossBlack);
+    railMesh.userData.isExterior = true;
+    railMesh.castShadow = true;
+    group.add(railMesh);
+
+    // B-pillar gloss black divider between front & rear side windows
+    const bGeo = new RoundedBoxGeometry(0.024, 0.49, 0.085, 2, 0.008);
+    const bMesh = new THREE.Mesh(bGeo, mats.glossBlack);
+    bMesh.position.set(side * 0.695, 1.17, -0.05);
+    bMesh.rotation.z = side * 0.34;
+    bMesh.userData.isExterior = true;
+    group.add(bMesh);
+  }
+
+  // Slim Roof LiDAR Pebble Pod above windshield header
+  const lidarGeo = new RoundedBoxGeometry(0.24, 0.048, 0.14, 3, 0.020);
+  const lidarMesh = new THREE.Mesh(lidarGeo, mats.glossBlack);
+  lidarMesh.position.set(0, 1.448, 0.25);
+  lidarMesh.rotation.x = 0.08;
+  lidarMesh.userData.isExterior = true;
+  lidarMesh.castShadow = true;
+
+  const lidarVisor = new THREE.Mesh(new RoundedBoxGeometry(0.18, 0.022, 0.03, 2, 0.006), mats.matteTrim);
+  lidarVisor.position.set(0, 1.442, 0.315);
+  lidarVisor.userData.isExterior = true;
+
+  group.add(windMesh, carbonRoofMesh, rearGlassMesh, sideWinMesh, lidarMesh, lidarVisor);
+  return group;
+}
+
+// Conforming twin racing stripes along hood, roof & rear deck
+function buildRacingStripes(mats) {
+  const group = new THREE.Group();
+  group.name = 'RacingStripeGroup';
+
+  const makeStripeStrip = (zFrom, zTo, halfIn, halfOut, ySampleFn) => {
+    const stations = [];
+    const steps = 28;
+    for (let i = 0; i <= steps; i++) {
+      const z = zFrom + (zTo - zFrom) * (i / steps);
+      const y = ySampleFn(z) + 0.003;
+      stations.push({
+        z,
+        pts: [
+          [halfOut, y - 0.002],
+          [halfIn, y],
+        ],
+      });
+    }
+    const m = new THREE.Mesh(buildSymmetricLoftGeometry(stations, { mirror: true }), mats.stripeMat);
+    m.userData.isExterior = true;
+    return m;
+  };
+
+  const hoodY = (z) => {
+    const t = clampNum((z - 0.90) / 1.54, 0, 1);
+    const yEdge = 0.875 - 0.375 * Math.pow(t, 1.35) + 0.025 * (1 - t);
+    return yEdge + 0.045 * (1 - t * 0.55) - 0.003;
+  };
+  const roofY = (z) => {
+    if (z > 0.24) return 0.89 + 0.53 * Math.pow((0.94 - z) / 0.70, 0.76);
+    if (z >= -0.45) return 1.465 - 0.042 * Math.pow((z + 0.10) / 0.35, 2);
+    return 1.43 - 0.40 * Math.pow((-0.45 - z) / 1.45, 1.32);
+  };
+  const deckY = (z) => {
+    const t = clampNum((-1.85 - z) / 0.58, 0, 1);
+    return 1.028 - 0.022 * t + Math.exp(-Math.pow((z + 2.34) / 0.12, 2)) * 0.015;
+  };
+
+  // Main dual thick stripes + fine outer pinstripes cleanly down center spine
+  group.add(
+    makeStripeStrip(2.38, 0.96, 0.028, 0.105, hoodY),
+    makeStripeStrip(2.38, 0.96, 0.120, 0.135, hoodY),
+    makeStripeStrip(0.18, -0.58, 0.028, 0.105, roofY),
+    makeStripeStrip(0.18, -0.58, 0.120, 0.135, roofY),
+    makeStripeStrip(-1.86, -2.38, 0.028, 0.105, deckY),
+    makeStripeStrip(-1.86, -2.38, 0.120, 0.135, deckY)
+  );
+
+  return group;
+}
+
+// Sculpted Waterdrop Matrix LED Headlights (flush on sculpted fender crest)
+function buildHeadlights(mats) {
+  const group = new THREE.Group();
+  group.name = 'HeadlightsGroup';
+  group.userData.explodeOffset = new THREE.Vector3(0, 0.25, 0.42);
+
+  for (const side of [1, -1]) {
+    const unit = new THREE.Group();
+    unit.position.set(side * 0.585, 0.578, 2.155);
+    unit.rotation.y = side * 0.30;
+    unit.rotation.x = 0.28;
+    unit.rotation.z = side * -0.16;
+
+    // Dark recessed waterdrop housing bucket sitting cleanly proud on fender surface
+    const bucket = new THREE.Mesh(
+      new RoundedBoxGeometry(0.24, 0.062, 0.17, 3, 0.022),
+      mats.glossBlack
+    );
+    bucket.userData.isExterior = true;
+    unit.add(bucket);
+
+    // Signature SU7 Horizontal White DRL Light Blade ("米" horizontal bar)
+    const drlBar = new THREE.Mesh(
+      new RoundedBoxGeometry(0.21, 0.011, 0.042, 2, 0.004),
+      mats.drlLed
+    );
+    drlBar.position.set(0, 0.008, 0.072);
+    drlBar.userData.isExterior = true;
+    unit.add(drlBar);
+
+    // Upper & Lower Dual Matrix LED Projectors
+    for (const py of [0.020, -0.008]) {
+      for (const px of [-0.042, 0.042]) {
+        const pod = new THREE.Mesh(
+          new RoundedBoxGeometry(0.044, 0.016, 0.036, 2, 0.005),
+          mats.headlightBeam
+        );
+        pod.position.set(px, py, 0.068);
+        pod.userData.isExterior = true;
+        unit.add(pod);
+      }
+    }
+
+    // Flush slim smoked polycarbonate lens
+    const lens = new THREE.Mesh(
+      new RoundedBoxGeometry(0.25, 0.068, 0.178, 4, 0.025),
+      mats.headlightGlass
+    );
+    lens.position.set(0, 0.003, 0.008);
+    lens.userData.isExterior = true;
+    unit.add(lens);
+
+    group.add(unit);
+  }
+  return group;
+}
+
+// Front Carbon Splitter + Signature Dual U-Shaped Aero Air Curtains + Hex Grille
+function buildFrontAero(mats) {
+  const group = new THREE.Group();
+  group.name = 'FrontAeroGroup';
+  group.userData.explodeOffset = new THREE.Vector3(0, -0.06, 0.62);
+
+  // Curved protruding carbon front splitter (max z = +2.5575)
+  const splitterShape = new THREE.Shape();
+  splitterShape.moveTo(-0.88, 0);
+  splitterShape.lineTo(-0.86, 0.21);
+  splitterShape.quadraticCurveTo(-0.56, 0.34, 0, 0.37);
+  splitterShape.quadraticCurveTo(0.56, 0.34, 0.86, 0.21);
+  splitterShape.lineTo(0.88, 0);
+  splitterShape.closePath();
+
+  const splitterGeo = new THREE.ExtrudeGeometry(splitterShape, {
+    depth: 0.022,
+    bevelEnabled: true,
+    bevelThickness: 0.005,
+    bevelSize: 0.005,
+    bevelSegments: 2,
+  });
+  splitterGeo.rotateX(Math.PI / 2);
+  const splitterMesh = new THREE.Mesh(splitterGeo, mats.carbon);
+  splitterMesh.position.set(0, 0.130, 2.185);
+  splitterMesh.castShadow = true;
+  splitterMesh.receiveShadow = true;
+  splitterMesh.userData.isExterior = true;
+  group.add(splitterMesh);
+
+  // Sleek low-profile endplate winglets + flush U-shaped aero curtains
+  for (const side of [1, -1]) {
+    const ep = new THREE.Mesh(new RoundedBoxGeometry(0.018, 0.068, 0.22, 2, 0.005), mats.carbon);
+    ep.position.set(side * 0.875, 0.156, 2.26);
+    ep.rotation.y = side * -0.14;
+    ep.userData.isExterior = true;
+    ep.castShadow = true;
+    group.add(ep);
+
+    // Recessed gloss-black side air curtain intake pocket + carbon U-knife trim
+    const sidePocket = new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.20, 0.06, 2, 0.015), mats.glossBlack);
+    sidePocket.position.set(side * 0.56, 0.295, 2.435);
+    sidePocket.rotation.y = side * 0.38;
+    sidePocket.userData.isExterior = true;
+    group.add(sidePocket);
+
+    const uCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(side * 0.44, 0.20, 2.49),
+      new THREE.Vector3(side * 0.65, 0.21, 2.42),
+      new THREE.Vector3(side * 0.69, 0.30, 2.38),
+      new THREE.Vector3(side * 0.64, 0.39, 2.39),
+      new THREE.Vector3(side * 0.48, 0.40, 2.45),
+    ]);
+    const uMesh = new THREE.Mesh(new THREE.TubeGeometry(uCurve, 24, 0.015, 8, false), mats.carbon);
+    uMesh.userData.isExterior = true;
+    uMesh.castShadow = true;
+    group.add(uMesh);
+  }
+
+  // Wide lower front radiator hex grille insert proud of bumper nose + carbon aero cross-blade
+  const grilleBezel = new THREE.Mesh(new RoundedBoxGeometry(0.92, 0.21, 0.075, 3, 0.018), mats.glossBlack);
+  grilleBezel.position.set(0, 0.295, 2.485);
+  grilleBezel.userData.isExterior = true;
+  group.add(grilleBezel);
+
+  const grille = new THREE.Mesh(new RoundedBoxGeometry(0.86, 0.175, 0.082, 2, 0.012), mats.hexMesh);
+  grille.position.set(0, 0.295, 2.488);
+  grille.userData.isExterior = true;
+  group.add(grille);
+
+  const crossBar = new THREE.Mesh(new RoundedBoxGeometry(1.06, 0.026, 0.095, 2, 0.008), mats.carbon);
+  crossBar.position.set(0, 0.295, 2.495);
+  crossBar.userData.isExterior = true;
+  group.add(crossBar);
+
+  return group;
+}
+
+// Full-Width Halo Taillight + 6-Fin Carbon Rear Diffuser + F1 Rain Lamp
+function buildRearAero(mats) {
+  const group = new THREE.Group();
+  group.name = 'RearAeroGroup';
+  group.userData.explodeOffset = new THREE.Vector3(0, 0.10, -0.62);
+
+  // Smoked full-width taillight recessed bezel sitting cleanly outside rear fascia
+  const housingCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.74, 0.855, -2.445),
+    new THREE.Vector3(-0.46, 0.862, -2.495),
+    new THREE.Vector3(0, 0.865, -2.518),
+    new THREE.Vector3(0.46, 0.862, -2.495),
+    new THREE.Vector3(0.74, 0.855, -2.445),
+  ]);
+  const housing = new THREE.Mesh(new THREE.TubeGeometry(housingCurve, 40, 0.044, 10, false), mats.glossBlack);
+  housing.scale.set(1, 0.65, 1);
+  housing.position.y = 0.86 * (1 - 0.65);
+  housing.userData.isExterior = true;
+  group.add(housing);
+
+  // Signature Xiaomi Halo Taillight (continuous glowing red LED loop completely outside rear fascia)
+  const haloPts = [
+    new THREE.Vector3(-0.71, 0.890, -2.470),
+    new THREE.Vector3(-0.44, 0.896, -2.514),
+    new THREE.Vector3(0, 0.900, -2.536),
+    new THREE.Vector3(0.44, 0.896, -2.514),
+    new THREE.Vector3(0.71, 0.890, -2.470),
+    new THREE.Vector3(0.76, 0.860, -2.448),
+    new THREE.Vector3(0.70, 0.830, -2.472),
+    new THREE.Vector3(0.44, 0.830, -2.514),
+    new THREE.Vector3(0, 0.830, -2.536),
+    new THREE.Vector3(-0.44, 0.830, -2.514),
+    new THREE.Vector3(-0.70, 0.830, -2.472),
+    new THREE.Vector3(-0.76, 0.860, -2.448),
+  ];
+  const haloCurve = new THREE.CatmullRomCurve3(haloPts, true, 'catmullrom', 0.22);
+  const haloLed = new THREE.Mesh(new THREE.TubeGeometry(haloCurve, 96, 0.012, 8, true), mats.haloTailLed);
+  haloLed.userData.isExterior = true;
+  group.add(haloLed);
+
+  // Rear Carbon Bumper Lower Diffuser Apron + 6 Sharp Venturi Fins
+  const diffuserBase = new THREE.Mesh(
+    new RoundedBoxGeometry(1.48, 0.15, 0.40, 3, 0.02),
+    mats.carbon
+  );
+  diffuserBase.position.set(0, 0.22, -2.35);
+  diffuserBase.rotation.x = -0.18;
+  diffuserBase.userData.isExterior = true;
+  diffuserBase.castShadow = true;
+  group.add(diffuserBase);
+
+  const finXs = [-0.62, -0.39, -0.15, 0.15, 0.39, 0.62];
+  for (const fx of finXs) {
+    const fin = new THREE.Mesh(new RoundedBoxGeometry(0.022, 0.18, 0.42, 2, 0.006), mats.carbon);
+    fin.position.set(fx, 0.195, -2.36);
+    fin.rotation.x = -0.14;
+    fin.userData.isExterior = true;
+    fin.castShadow = true;
+    group.add(fin);
+  }
+
+  // Central F1-style vertical LED rain/brake light proud at rear diffuser center
+  const f1Lamp = new THREE.Mesh(new RoundedBoxGeometry(0.042, 0.105, 0.045, 2, 0.008), mats.f1BrakeLed);
+  f1Lamp.position.set(0, 0.22, -2.562);
+  f1Lamp.userData.isExterior = true;
+  group.add(f1Lamp);
+
+  // Sculpted gloss-black lower rear valence apron transitioning into the 6-fin diffuser
+  const rearValence = new THREE.Mesh(
+    new RoundedBoxGeometry(1.52, 0.18, 0.06, 3, 0.018),
+    mats.glossBlack
+  );
+  rearValence.position.set(0, 0.37, -2.482);
+  rearValence.rotation.x = -0.10;
+  rearValence.userData.isExterior = true;
+  group.add(rearValence);
+
+  // Recessed rear license-plate cove & crisp bezel framing
+  const plateCove = new THREE.Mesh(
+    new RoundedBoxGeometry(0.46, 0.12, 0.024, 2, 0.008),
+    mats.matteTrim
+  );
+  plateCove.position.set(0, 0.56, -2.498);
+  plateCove.userData.isExterior = true;
+  group.add(plateCove);
+
+  // Twin vertical rear-bumper side air-extraction vents
+  for (const side of [1, -1]) {
+    const rearSideVent = new THREE.Mesh(
+      new RoundedBoxGeometry(0.045, 0.19, 0.075, 2, 0.010),
+      mats.glossBlack
+    );
+    rearSideVent.position.set(side * 0.74, 0.54, -2.41);
+    rearSideVent.rotation.y = side * -0.45;
+    rearSideVent.userData.isExterior = true;
+    group.add(rearSideVent);
+  }
+
+  return group;
+}
+
+// 1560mm Carbon Fiber Fixed GT Wing (and switchable Active Street Spoiler)
+function buildWingAssembly(mats) {
+  const group = new THREE.Group();
+  group.name = 'WingGroup';
+  group.userData.explodeOffset = new THREE.Vector3(0, 0.92, -0.58);
+
+  // Mode A: 1560 mm Fixed Carbon GT Wing
+  const gtWingGroup = new THREE.Group();
+  gtWingGroup.name = 'GTWing';
+
+  // Cambered inverted airfoil cross section
+  const foil = new THREE.Shape();
+  foil.moveTo(-0.125, 0.012);
+  foil.quadraticCurveTo(-0.02, -0.026, 0.125, 0.016); // cambered bottom suction surface
+  foil.quadraticCurveTo(0.0, 0.006, -0.125, 0.024);   // upper pressure surface
+  foil.closePath();
+
+  const span = 1.56;
+  const foilGeo = new THREE.ExtrudeGeometry(foil, {
+    depth: span,
+    bevelEnabled: true,
+    bevelThickness: 0.004,
+    bevelSize: 0.004,
+    bevelSegments: 2,
+  });
+  // Rotate so depth runs along X (-0.78..+0.78) and airfoil chord runs along Z
+  foilGeo.translate(0, 0, -span / 2);
+  foilGeo.rotateY(Math.PI / 2);
+  const foilMesh = new THREE.Mesh(foilGeo, mats.carbon);
+  foilMesh.position.set(0, 1.245, -2.31);
+  foilMesh.rotation.x = -0.14; // angle of attack generating downforce
+  foilMesh.castShadow = true;
+  foilMesh.userData.isExterior = true;
+  gtWingGroup.add(foilMesh);
+
+  // Twin curved Swan-Neck Carbon Pylons + Sculpted Endplates
+  for (const side of [1, -1]) {
+    const pylonShape = new THREE.Shape();
+    pylonShape.moveTo(0, 0);
+    pylonShape.lineTo(0.16, 0);
+    pylonShape.quadraticCurveTo(0.10, 0.16, -0.04, 0.27);
+    pylonShape.lineTo(-0.11, 0.25);
+    pylonShape.quadraticCurveTo(0.01, 0.15, 0, 0);
+
+    const pylonGeo = new THREE.ExtrudeGeometry(pylonShape, { depth: 0.022, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.003, bevelSegments: 2 });
+    pylonGeo.translate(0, 0, -0.011);
+    pylonGeo.rotateY(Math.PI / 2);
+    const pylonMesh = new THREE.Mesh(pylonGeo, mats.carbon);
+    pylonMesh.position.set(side * 0.34, 1.01, -2.14);
+    pylonMesh.castShadow = true;
+    pylonMesh.userData.isExterior = true;
+    gtWingGroup.add(pylonMesh);
+
+    // Endplate
+    const epShape = new THREE.Shape();
+    epShape.moveTo(-0.15, -0.08);
+    epShape.lineTo(0.15, -0.05);
+    epShape.lineTo(0.17, 0.08);
+    epShape.lineTo(-0.13, 0.06);
+    epShape.closePath();
+    const epGeo = new THREE.ExtrudeGeometry(epShape, { depth: 0.014, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.003, bevelSegments: 2 });
+    epGeo.translate(0, 0, -0.007);
+    epGeo.rotateY(Math.PI / 2);
+    const epMesh = new THREE.Mesh(epGeo, mats.carbon);
+    epMesh.position.set(side * 0.785, 1.245, -2.31);
+    epMesh.castShadow = true;
+    epMesh.userData.isExterior = true;
+    gtWingGroup.add(epMesh);
+  }
+
+  // Mode B: Sleek Active Street Spoiler
+  const activeWingGroup = new THREE.Group();
+  activeWingGroup.name = 'ActiveSpoiler';
+  activeWingGroup.visible = false;
+  const activeBlade = new THREE.Mesh(
+    new RoundedBoxGeometry(1.36, 0.026, 0.17, 3, 0.009),
+    mats.carbon
+  );
+  activeBlade.position.set(0, 1.022, -2.35);
+  activeBlade.castShadow = true;
+  activeBlade.userData.isExterior = true;
+  activeWingGroup.add(activeBlade);
+
+  group.add(gtWingGroup, activeWingGroup);
+  return { group, gtWingGroup, activeWingGroup, activeBlade };
+}
+
+// Sculpted Carbon Side Skirts & Mirrors (tucked cleanly flush under lower body sill)
+function buildDetailsAndSideSkirts(mats) {
+  const skirtsGroup = new THREE.Group();
+  skirtsGroup.name = 'SideSkirtsGroup';
+  skirtsGroup.userData.explodeOffset = new THREE.Vector3(0, -0.10, 0);
+
+  for (const side of [1, -1]) {
+    // Carbon side skirt blade tucked cleanly under lower sill (xLow ~ 0.83..0.86)
+    const skirt = new THREE.Mesh(new RoundedBoxGeometry(0.11, 0.032, 2.06, 3, 0.010), mats.carbon);
+    skirt.position.set(side * 0.845, 0.140, 0.0);
+    skirt.castShadow = true;
+    skirt.userData.isExterior = true;
+    skirtsGroup.add(skirt);
+
+    // Subtle contoured rear aero flick smoothly meeting the rear wheel arch
+    const flick = new THREE.Mesh(new RoundedBoxGeometry(0.036, 0.105, 0.18, 2, 0.008), mats.carbon);
+    flick.position.set(side * 0.885, 0.182, -0.96);
+    flick.rotation.x = 0.24;
+    flick.userData.isExterior = true;
+    flick.castShadow = true;
+    skirtsGroup.add(flick);
+
+    // Aerodynamic side mirror
+    const stalk = new THREE.Mesh(new RoundedBoxGeometry(0.11, 0.026, 0.042, 2, 0.008), mats.glossBlack);
+    stalk.position.set(side * 0.89, 0.945, 0.65);
+    stalk.rotation.z = side * 0.28;
+    stalk.userData.isExterior = true;
+    skirtsGroup.add(stalk);
+
+    const cap = new THREE.Mesh(new RoundedBoxGeometry(0.165, 0.082, 0.130, 3, 0.030), mats.carbon);
+    cap.position.set(side * 0.995, 0.985, 0.61);
+    cap.rotation.y = side * -0.22;
+    cap.castShadow = true;
+    cap.userData.isExterior = true;
+    skirtsGroup.add(cap);
+  }
+
+  return skirtsGroup;
+}
+
+// Track Cockpit Interior (remains solid in X-Ray & Cutaway)
+function buildInterior(mats) {
+  const group = new THREE.Group();
+  group.name = 'InteriorGroup';
+  group.userData.explodeOffset = new THREE.Vector3(0, 0.22, 0);
+
+  // Dashboard
+  const dash = new THREE.Mesh(new RoundedBoxGeometry(1.48, 0.24, 0.44, 4, 0.06), mats.interiorAlcantara);
+  dash.position.set(0, 0.79, 0.65);
+  group.add(dash);
+
+  // Central 16.1" infotainment screen
+  const screenBezel = new THREE.Mesh(new RoundedBoxGeometry(0.36, 0.22, 0.024, 2, 0.008), mats.glossBlack);
+  screenBezel.position.set(0, 0.87, 0.43);
+  screenBezel.rotation.x = -0.18;
+  group.add(screenBezel);
+
+  const screenPanel = new THREE.Mesh(new THREE.PlaneGeometry(0.33, 0.19), mats.screenGlow);
+  screenPanel.position.set(0, 0.87, 0.417);
+  screenPanel.rotation.x = -0.18;
+  screenPanel.rotation.y = Math.PI;
+  group.add(screenPanel);
+
+  // Center Console Tunnel
+  const consoleBox = new THREE.Mesh(new RoundedBoxGeometry(0.24, 0.26, 1.35, 3, 0.05), mats.interiorAlcantara);
+  consoleBox.position.set(0, 0.46, -0.05);
+  group.add(consoleBox);
+
+  // Flat-bottom carbon/Alcantara steering wheel (Driver on +X or -X? Left-hand drive China spec: driver at +X in +Z forward view!)
+  // Wait: looking from front (+Z) back toward -Z, driver's left is +X! Check: standing inside car facing +Z (forward), right hand is -X, left hand is +X!
+  const wheelGroup = new THREE.Group();
+  wheelGroup.position.set(0.36, 0.82, 0.34);
+  wheelGroup.rotation.x = -0.34;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.165, 0.019, 12, 36), mats.carbon);
+  const topMark = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.042, 0.042), mats.seatYellowAccent);
+  topMark.position.set(0, 0.165, 0);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.04, 20), mats.interiorAlcantara);
+  hub.rotation.x = Math.PI / 2;
+  wheelGroup.add(rim, topMark, hub);
+  group.add(wheelGroup);
+
+  // Twin Sport Carbon-Shell Bucket Seats
+  for (const sx of [0.36, -0.36]) {
+    const seat = new THREE.Group();
+    seat.position.set(sx, 0.35, -0.16);
+
+    const cushion = new THREE.Mesh(new RoundedBoxGeometry(0.46, 0.11, 0.50, 3, 0.04), mats.interiorAlcantara);
+    cushion.position.set(0, 0.06, 0.10);
+
+    const backrest = new THREE.Mesh(new RoundedBoxGeometry(0.44, 0.68, 0.11, 3, 0.045), mats.interiorAlcantara);
+    backrest.position.set(0, 0.42, -0.14);
+    backrest.rotation.x = -0.24;
+
+    const carbonShell = new THREE.Mesh(new RoundedBoxGeometry(0.45, 0.66, 0.04, 3, 0.02), mats.carbon);
+    carbonShell.position.set(0, 0.42, -0.185);
+    carbonShell.rotation.x = -0.24;
+
+    const headrestAccent = new THREE.Mesh(new RoundedBoxGeometry(0.18, 0.12, 0.09, 2, 0.03), mats.seatYellowAccent);
+    headrestAccent.position.set(0, 0.72, -0.21);
+    headrestAccent.rotation.x = -0.24;
+
+    seat.add(cushion, backrest, carbonShell, headrestAccent);
+    group.add(seat);
+  }
+
+  return group;
+}
+
+function buildCarBody(mats) {
+  const root = new THREE.Group();
+  root.name = 'SU7_Exterior_Root';
+
+  // 1. Main Lower Body + Fenders + Widebody Rear Haunches + Wheelhouse Tubs
+  const bodyMainGroup = new THREE.Group();
+  bodyMainGroup.name = 'BodyMainGroup';
+  bodyMainGroup.userData.explodeOffset = new THREE.Vector3(0, 0.48, 0);
+
+  const zList = buildBodyZStations();
+  const bodyStations = zList.map((z) => sampleSU7LowerBody(z));
+  const bodyMesh = new THREE.Mesh(buildSymmetricLoftGeometry(bodyStations), mats.bodyPaint);
+  bodyMesh.name = 'LowerBodyShell';
+  bodyMesh.castShadow = true;
+  bodyMesh.receiveShadow = true;
+  bodyMesh.userData.isExterior = true;
+
+  const frontBumperMesh = new THREE.Mesh(buildEndBumperFascia(2.47, bodyStations, true), mats.bodyPaint);
+  frontBumperMesh.name = 'FrontBumperFascia';
+  frontBumperMesh.castShadow = true;
+  frontBumperMesh.receiveShadow = true;
+  frontBumperMesh.userData.isExterior = true;
+
+  const rearBumperMesh = new THREE.Mesh(buildEndBumperFascia(-2.46, bodyStations, false), mats.bodyPaint);
+  rearBumperMesh.name = 'RearBumperFascia';
+  rearBumperMesh.castShadow = true;
+  rearBumperMesh.receiveShadow = true;
+  rearBumperMesh.userData.isExterior = true;
+
+  bodyMainGroup.add(bodyMesh, frontBumperMesh, rearBumperMesh);
+
+  // Dark inner wheelhouse liner tubs (so wheel arches are deep & light-tight)
+  const wheelSpots = [
+    { x: 0.74, z: 1.50, r: 0.398 },
+    { x: -0.74, z: 1.50, r: 0.398 },
+    { x: 0.74, z: -1.50, r: 0.402 },
+    { x: -0.74, z: -1.50, r: 0.402 },
+  ];
+  for (const ws of wheelSpots) {
+    const archTub = new THREE.Mesh(
+      new THREE.CylinderGeometry(ws.r, ws.r, 0.34, 28, 1, true, 0, Math.PI),
+      mats.matteTrim
+    );
+    archTub.rotation.z = Math.PI / 2;
+    archTub.rotation.x = Math.PI / 2;
+    archTub.position.set(ws.x, 0.360, ws.z);
+    archTub.userData.isExterior = true;
+    bodyMainGroup.add(archTub);
+  }
+
+  // Side fender extractor vents behind front wheels + semi-flush door handles
+  for (const side of [1, -1]) {
+    const fenderVent = new THREE.Mesh(new RoundedBoxGeometry(0.032, 0.21, 0.11, 2, 0.008), mats.glossBlack);
+    fenderVent.position.set(side * 0.892, 0.45, 0.98);
+    fenderVent.rotation.x = -0.22;
+    fenderVent.rotation.z = side * 0.08;
+    fenderVent.userData.isExterior = true;
+    bodyMainGroup.add(fenderVent);
+
+    const ventBlade = new THREE.Mesh(new RoundedBoxGeometry(0.036, 0.13, 0.018, 1, 0.004), mats.goldBadge);
+    ventBlade.position.set(side * 0.896, 0.45, 0.98);
+    ventBlade.rotation.x = -0.22;
+    ventBlade.rotation.z = side * 0.08;
+    ventBlade.userData.isExterior = true;
+    bodyMainGroup.add(ventBlade);
+
+    // Flush semi-hidden front & rear door handles
+    for (const hz of [0.22, -0.68]) {
+      const handle = new THREE.Mesh(new RoundedBoxGeometry(0.025, 0.026, 0.155, 2, 0.008), mats.glossBlack);
+      handle.position.set(side * 0.922, 0.77, hz);
+      handle.userData.isExterior = true;
+      bodyMainGroup.add(handle);
+    }
+  }
+
+  // 2. Hood Group (Switchable Standard Painted Hood vs Carbon Dual-Duct Hood)
+  const hoodGroup = new THREE.Group();
+  hoodGroup.name = 'HoodGroup';
+  hoodGroup.userData.explodeOffset = new THREE.Vector3(0, 0.72, 0.45);
+
+  const hoodStdMesh = new THREE.Mesh(buildHoodGeometry(false), mats.bodyPaint);
+  hoodStdMesh.name = 'HoodStandard';
+  hoodStdMesh.castShadow = true;
+  hoodStdMesh.receiveShadow = true;
+  hoodStdMesh.userData.isExterior = true;
+  hoodStdMesh.visible = false;
+
+  const hoodCarbonGroup = new THREE.Group();
+  hoodCarbonGroup.name = 'HoodCarbonDualDuct';
+  const hoodCarbonMesh = new THREE.Mesh(buildHoodGeometry(true), mats.carbon);
+  hoodCarbonMesh.castShadow = true;
+  hoodCarbonMesh.receiveShadow = true;
+  hoodCarbonMesh.userData.isExterior = true;
+  hoodCarbonGroup.add(hoodCarbonMesh);
+
+  for (const side of [1, -1]) {
+    const ductGrid = new THREE.Mesh(new RoundedBoxGeometry(0.14, 0.025, 0.28, 2, 0.006), mats.hexMesh);
+    ductGrid.position.set(side * 0.27, 0.662, 1.78);
+    ductGrid.rotation.x = 0.22;
+    ductGrid.userData.isExterior = true;
+    hoodCarbonGroup.add(ductGrid);
+  }
+
+  // 24K Gold Xiaomi Nose Emblem
+  const noseEmblem = new THREE.Mesh(new RoundedBoxGeometry(0.068, 0.012, 0.068, 3, 0.014), mats.goldBadge);
+  noseEmblem.position.set(0, 0.565, 2.34);
+  noseEmblem.rotation.x = 0.24;
+  noseEmblem.userData.isExterior = true;
+
+  // 24K Gold Rear Badge bar (proud of rear fascia above Halo taillight)
+  const rearBadge = new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.016, 0.014, 2, 0.003), mats.goldBadge);
+  rearBadge.position.set(0, 0.962, -2.495);
+  rearBadge.userData.isExterior = true;
+
+  hoodGroup.add(hoodStdMesh, hoodCarbonGroup, noseEmblem);
+  bodyMainGroup.add(rearBadge);
+
+  // 3. Canopy, Stripes, Aero, Lights, Side Skirts, Interior
+  const canopyGroup = buildCanopyParts(mats);
+  const racingStripeGroup = buildRacingStripes(mats);
+  const frontAeroGroup = buildFrontAero(mats);
+  const headlightsGroup = buildHeadlights(mats);
+  const rearAeroGroup = buildRearAero(mats);
+  const wingCtrl = buildWingAssembly(mats);
+  const sideSkirtsGroup = buildDetailsAndSideSkirts(mats);
+  const interiorGroup = buildInterior(mats);
+
+  root.add(
+    bodyMainGroup,
+    hoodGroup,
+    canopyGroup,
+    racingStripeGroup,
+    frontAeroGroup,
+    headlightsGroup,
+    rearAeroGroup,
+    wingCtrl.group,
+    sideSkirtsGroup,
+    interiorGroup
+  );
+
+  // Collect all exterior meshes for clean X-Ray material swapping
+  const exteriorMeshEntries = [];
+  root.traverse((obj) => {
+    if (obj.isMesh && obj.userData.isExterior) {
+      exteriorMeshEntries.push({
+        mesh: obj,
+        origMat: obj.material,
+        isGlass: obj.material === mats.cabinGlass || obj.material === mats.headlightGlass || obj.material === mats.taillightLens,
+      });
+    }
+  });
+
+  // Collect explodeable top-level groups
+  const explodeGroups = [
+    bodyMainGroup,
+    hoodGroup,
+    canopyGroup,
+    frontAeroGroup,
+    headlightsGroup,
+    rearAeroGroup,
+    wingCtrl.group,
+    sideSkirtsGroup,
+    interiorGroup,
+  ];
+  for (const g of explodeGroups) {
+    g.userData.basePos = g.position.clone();
+  }
+
+  return {
+    root,
+    explodeGroups,
+    exteriorMeshEntries,
+    setHoodCarbon(enabled) {
+      hoodCarbonGroup.visible = enabled;
+      hoodStdMesh.visible = !enabled;
+    },
+    setRacingStripe(enabled) {
+      racingStripeGroup.visible = enabled;
+    },
+    setWingMode(isGT) {
+      wingCtrl.gtWingGroup.visible = isGT;
+      wingCtrl.activeWingGroup.visible = !isGT;
+    },
+    updateActiveSpoiler(speedKmh) {
+      if (!wingCtrl.activeWingGroup.visible) return;
+      const deploy = clampNum((speedKmh - 90) / 80, 0, 1);
+      wingCtrl.activeBlade.position.y = 1.022 + deploy * 0.085;
+      wingCtrl.activeBlade.rotation.x = -deploy * 0.22;
+    },
+    setLightsOn(on) {
+      mats.drlLed.emissiveIntensity = on ? 3.2 : 0.08;
+      mats.headlightBeam.emissiveIntensity = on ? 2.5 : 0.04;
+      mats.haloTailLed.emissiveIntensity = on ? 3.2 : 0.1;
+      mats.f1BrakeLed.emissiveIntensity = on ? 2.6 : 0.05;
+    },
+  };
+}
+
+
+// === src/03-car-internals.js ===
+// Internal powertrain, CATL Qilin II battery, 897V harness, suspension, 21" forged wheels,
+// 430mm/410mm carbon-ceramic brakes, Akebono calipers, and 3D aerodynamic streamlines
+
+function buildHelicalSpring(radius, wireR, turns, height, mat) {
+  const pts = [];
+  const segs = turns * 18;
+  for (let i = 0; i <= segs; i++) {
+    const t = i / segs;
+    const a = t * turns * Math.PI * 2;
+    pts.push(new THREE.Vector3(Math.cos(a) * radius, (t - 0.5) * height, Math.sin(a) * radius));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  return new THREE.Mesh(new THREE.TubeGeometry(curve, segs, wireR, 7, false), mat);
+}
+
+// Build one corner assembly: wheel + tire + brake rotor (spinning) & knuckle + Akebono caliper (stationary)
+function buildWheelCorner({ isFront, side, mats }) {
+  const hubZ = isFront ? 1.500 : -1.500;
+  const hubX = side * (isFront ? 0.835 : 0.825);
+  const tireW = isFront ? 0.265 : 0.305;
+  const rotorR = isFront ? 0.215 : 0.205; // 430 mm front, 410 mm rear
+  const rotorThick = isFront ? 0.036 : 0.028;
+
+  const cornerGroup = new THREE.Group();
+  cornerGroup.name = `${isFront ? 'Front' : 'Rear'}_${side > 0 ? 'Left' : 'Right'}_Corner`;
+  cornerGroup.position.set(hubX, 0.360, hubZ);
+  cornerGroup.userData.basePos = cornerGroup.position.clone();
+  cornerGroup.userData.explodeOffset = new THREE.Vector3(side * 0.62, 0, isFront ? 0.16 : -0.16);
+
+  // 1. Stationary Hub Knuckle & Sculpted Yellow Akebono Monoblock Caliper
+  const stationaryGroup = new THREE.Group();
+  const caliperAngle = isFront ? Math.PI * 0.82 : Math.PI * 0.18; // 10 o'clock front, 2 o'clock rear
+  const calR = rotorR - 0.025;
+
+  const caliperGroup = new THREE.Group();
+  caliperGroup.position.set(
+    -side * 0.028,
+    Math.sin(caliperAngle) * calR,
+    Math.cos(caliperAngle) * calR
+  );
+  caliperGroup.rotation.x = -(caliperAngle - Math.PI / 2);
+
+  const calLen = isFront ? 0.25 : 0.20;
+  const calBody = new THREE.Mesh(
+    new RoundedBoxGeometry(0.11, 0.09, calLen, 3, 0.022),
+    mats.caliperYellow
+  );
+  calBody.castShadow = true;
+
+  // Dark Akebono badge plate on outer face of caliper
+  const calBadge = new THREE.Mesh(
+    new RoundedBoxGeometry(0.012, 0.036, calLen * 0.56, 1, 0.004),
+    mats.glossBlack
+  );
+  calBadge.position.set(side * 0.052, 0, 0);
+
+  // Piston bridge ribs
+  const calBridge = new THREE.Mesh(
+    new RoundedBoxGeometry(0.118, 0.022, calLen * 0.72, 2, 0.005),
+    mats.darkCastAlu
+  );
+  calBridge.position.set(0, 0.04, 0);
+
+  caliperGroup.add(calBody, calBadge, calBridge);
+
+  const knuckle = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.068, 0.068, 0.10, 16),
+    mats.darkCastAlu
+  );
+  knuckle.rotation.z = Math.PI / 2;
+  knuckle.position.set(-side * 0.09, 0, 0);
+
+  // Dark inner brake dust shield backing disc so light never passes straight through spokes
+  const dustShield = new THREE.Mesh(
+    new THREE.CylinderGeometry(rotorR + 0.022, rotorR + 0.022, 0.010, 32),
+    mats.matteTrim
+  );
+  dustShield.rotation.z = Math.PI / 2;
+  dustShield.position.set(-side * 0.058, 0, 0);
+
+  stationaryGroup.add(caliperGroup, knuckle, dustShield);
+  cornerGroup.add(stationaryGroup);
+
+  // 2. Rotating Wheel + Tire + Carbon-Ceramic Brake Rotor
+  const spinGroup = new THREE.Group();
+
+  // Tire Lathe Profile (revolved around Y, then rotated so axle is X)
+  // Radius 0.360 outer, 0.267 rim bead (21" = 0.5334m diameter -> r = 0.2667)
+  const hw = tireW * 0.5;
+  const rRim = 0.266;
+  const rOut = 0.360;
+  const tirePts = [
+    new THREE.Vector2(rRim, -hw * 0.86),
+    new THREE.Vector2(rRim + 0.035, -hw * 0.99),
+    new THREE.Vector2(rOut - 0.015, -hw * 0.96),
+    new THREE.Vector2(rOut, -hw * 0.82),
+    new THREE.Vector2(rOut, hw * 0.82),
+    new THREE.Vector2(rOut - 0.015, hw * 0.96),
+    new THREE.Vector2(rRim + 0.035, hw * 0.99),
+    new THREE.Vector2(rRim, hw * 0.86),
+  ];
+  const tireGeo = new THREE.LatheGeometry(tirePts, 48);
+  tireGeo.rotateZ(Math.PI / 2);
+  const tireMesh = new THREE.Mesh(tireGeo, mats.tireRubber);
+  tireMesh.castShadow = true;
+  tireMesh.receiveShadow = true;
+  spinGroup.add(tireMesh);
+
+  // Inner dark forged wheel barrel
+  const barrel = new THREE.Mesh(
+    new THREE.CylinderGeometry(rRim, rRim, tireW * 0.86, 40, 1, true),
+    mats.forgedWheel
+  );
+  barrel.rotation.z = Math.PI / 2;
+  spinGroup.add(barrel);
+
+  // Machined bright outer rim flange lip
+  const rimLip = new THREE.Mesh(
+    new THREE.TorusGeometry(rRim - 0.004, 0.009, 10, 48),
+    mats.machinedAlloy
+  );
+  rimLip.rotation.y = Math.PI / 2;
+  rimLip.position.x = side * (hw * 0.82);
+  spinGroup.add(rimLip);
+
+  // 10-Spoke (5 twin U-shaped split spokes) 21" Forged Alloy Face
+  const spokeOuterX = side * (hw * 0.72);
+  const hubFaceX = side * (hw * 0.44);
+  for (let i = 0; i < 5; i++) {
+    const baseAngle = (i / 5) * Math.PI * 2;
+    for (const delta of [-0.15, 0.15]) {
+      const a = baseAngle + delta;
+      const spoke = new THREE.Mesh(
+        new RoundedBoxGeometry(0.022, 0.175, 0.024, 2, 0.005),
+        mats.forgedWheel
+      );
+      const rMid = 0.176;
+      spoke.position.set(
+        (spokeOuterX + hubFaceX) * 0.5 + side * 0.01,
+        Math.sin(a) * rMid,
+        Math.cos(a) * rMid
+      );
+      spoke.rotation.x = -(a - Math.PI / 2);
+      spoke.rotation.z = side * -0.18; // Concave forged dishing!
+      spoke.castShadow = true;
+      spinGroup.add(spoke);
+    }
+  }
+
+  // Central Hub & 5 Metallic Lug Bolts + Gold Xiaomi Center Cap
+  const wheelHub = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.088, 0.094, 0.055, 24),
+    mats.forgedWheel
+  );
+  wheelHub.rotation.z = Math.PI / 2;
+  wheelHub.position.x = hubFaceX;
+  spinGroup.add(wheelHub);
+
+  const centerCap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.036, 0.038, 0.02, 20),
+    mats.goldBadge
+  );
+  centerCap.rotation.z = Math.PI / 2;
+  centerCap.position.x = hubFaceX + side * 0.024;
+  spinGroup.add(centerCap);
+
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    const lug = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.009, 0.009, 0.022, 8),
+      mats.machinedAlloy
+    );
+    lug.rotation.z = Math.PI / 2;
+    lug.position.set(hubFaceX + side * 0.022, Math.sin(a) * 0.062, Math.cos(a) * 0.062);
+    spinGroup.add(lug);
+  }
+
+  // Cross-drilled Carbon-Ceramic Brake Disc + Central Anodized Hat
+  const discX = -side * 0.028;
+  const rotorGeo = new THREE.CylinderGeometry(rotorR, rotorR, rotorThick, 40);
+  rotorGeo.rotateZ(Math.PI / 2);
+  const rotorMesh = new THREE.Mesh(rotorGeo, mats.brakeRotor);
+  rotorMesh.position.x = discX;
+  spinGroup.add(rotorMesh);
+
+  const discHat = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.112, 0.118, rotorThick + 0.018, 24),
+    mats.darkCastAlu
+  );
+  discHat.rotation.z = Math.PI / 2;
+  discHat.position.x = discX;
+  spinGroup.add(discHat);
+
+  cornerGroup.add(spinGroup);
+
+  return { cornerGroup, spinGroup, hubZ, hubX };
+}
+
+// Build HyperEngine V8s or V6s drive unit with exposed copper stator & spinning rotor
+function buildElectricDriveUnit({ name, width, outerR, mats, withWindow = true }) {
+  const unit = new THREE.Group();
+  unit.name = name;
+
+  // Outer ribbed cast-aluminum casing (open ends or cutaway inspection window)
+  const casing = new THREE.Mesh(
+    new THREE.CylinderGeometry(outerR, outerR, width, 28, 1, false),
+    mats.castAlu
+  );
+  casing.rotation.z = Math.PI / 2;
+  casing.castShadow = true;
+  unit.add(casing);
+
+  // Cooling fins around motor housing
+  for (let i = -3; i <= 3; i++) {
+    const fin = new THREE.Mesh(
+      new THREE.TorusGeometry(outerR + 0.006, 0.006, 6, 28),
+      mats.darkCastAlu
+    );
+    fin.rotation.y = Math.PI / 2;
+    fin.position.x = i * (width / 8);
+    unit.add(fin);
+  }
+
+  // Exposed Copper Hairpin Stator Winding Rings at both ends
+  for (const s of [-1, 1]) {
+    const copperRing = new THREE.Mesh(
+      new THREE.TorusGeometry(outerR * 0.78, 0.022, 10, 28),
+      mats.copperWinding
+    );
+    copperRing.rotation.y = Math.PI / 2;
+    copperRing.position.x = s * (width * 0.44);
+    unit.add(copperRing);
+  }
+
+  // Spinning Rotor Core visible through central cutaway inspection window & ends
+  const rotorGroup = new THREE.Group();
+  const rotorShaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.036, 0.036, width * 1.18, 16),
+    mats.siliconSteel
+  );
+  rotorShaft.rotation.z = Math.PI / 2;
+  rotorGroup.add(rotorShaft);
+
+  const rotorCore = new THREE.Mesh(
+    new THREE.CylinderGeometry(outerR * 0.64, outerR * 0.64, width * 0.74, 16),
+    mats.siliconSteel
+  );
+  rotorCore.rotation.z = Math.PI / 2;
+  rotorGroup.add(rotorCore);
+
+  // Rotor cooling/pole indicator stripes so rotation is crystal clear
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * Math.PI * 2;
+    const bar = new THREE.Mesh(
+      new RoundedBoxGeometry(width * 0.76, 0.018, 0.024, 1, 0.004),
+      mats.copperWinding
+    );
+    bar.position.set(0, Math.sin(a) * (outerR * 0.65), Math.cos(a) * (outerR * 0.65));
+    rotorGroup.add(bar);
+  }
+  unit.add(rotorGroup);
+
+  if (withWindow) {
+    // Top SiC Silicon-Carbide Inverter Module with cooling ribs
+    const inverter = new THREE.Mesh(
+      new RoundedBoxGeometry(width * 0.82, 0.082, outerR * 1.45, 2, 0.014),
+      mats.darkCastAlu
+    );
+    inverter.position.set(0, outerR + 0.045, 0);
+    inverter.castShadow = true;
+    unit.add(inverter);
+
+    const hvConnector = new THREE.Mesh(
+      new RoundedBoxGeometry(0.055, 0.042, 0.055, 2, 0.008),
+      mats.hvOrange
+    );
+    hvConnector.position.set(0, outerR + 0.088, 0.06);
+    unit.add(hvConnector);
+  }
+
+  return { unit, rotorGroup };
+}
+
+// Build 3D Aerodynamic Streamlines wrapping smoothly over the SU7 Ultra silhouette
+function buildAeroStreamlines() {
+  const aeroGroup = new THREE.Group();
+  aeroGroup.name = 'AeroStreamlinesGroup';
+  aeroGroup.visible = false;
+
+  const laneXs = [-0.68, -0.44, -0.22, 0, 0.22, 0.44, 0.68];
+  const streamEntries = [];
+
+  for (const x of laneXs) {
+    const absX = Math.abs(x);
+    const roofDrop = absX * 0.09;
+
+    // Upper airflow over splitter, hood, windshield, carbon roof, and deflected up by 1560mm GT wing
+    const upperPts = [
+      new THREE.Vector3(x, 0.22, 3.05),
+      new THREE.Vector3(x, 0.34, 2.52),
+      new THREE.Vector3(x * 0.96, 0.66 - absX * 0.04, 1.92),
+      new THREE.Vector3(x * 0.94, 0.90 - absX * 0.03, 1.10),
+      new THREE.Vector3(x * 0.85, 1.49 - roofDrop, 0.10),
+      new THREE.Vector3(x * 0.84, 1.46 - roofDrop, -0.60),
+      new THREE.Vector3(x * 0.88, 1.24 - roofDrop * 0.5, -1.55),
+      new THREE.Vector3(x * 0.95, 1.32, -2.28), // hits GT wing
+      new THREE.Vector3(x * 0.98, 1.48, -2.95), // upward downforce wash!
+      new THREE.Vector3(x * 1.02, 1.56, -3.45),
+    ];
+
+    const curve = new THREE.CatmullRomCurve3(upperPts);
+    const linePts = curve.getPoints(72);
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(linePts);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.35,
+    });
+    const guideLine = new THREE.Line(lineGeo, lineMat);
+    aeroGroup.add(guideLine);
+
+    // 3 glowing aerodynamic flow streaks traveling along each streamline
+    const beads = [];
+    for (let b = 0; b < 3; b++) {
+      const beadGeo = new THREE.SphereGeometry(0.018, 8, 8);
+      beadGeo.scale(1, 0.8, 4.2);
+      const beadMat = new THREE.MeshBasicMaterial({
+        color: 0x56e0ff,
+        transparent: true,
+        opacity: 0.9,
+      });
+      const bead = new THREE.Mesh(beadGeo, beadMat);
+      aeroGroup.add(bead);
+      beads.push({ mesh: bead, phase: b / 3 });
+    }
+    streamEntries.push({ curve, lineMat, beads });
+  }
+
+  // 4 Underbody Venturi Diffuser Outwash Streams
+  for (const x of [-0.52, -0.18, 0.18, 0.52]) {
+    const lowPts = [
+      new THREE.Vector3(x, 0.11, 2.70),
+      new THREE.Vector3(x, 0.10, 1.20),
+      new THREE.Vector3(x, 0.10, -0.60),
+      new THREE.Vector3(x, 0.12, -1.85),
+      new THREE.Vector3(x, 0.24, -2.52),
+      new THREE.Vector3(x * 1.05, 0.36, -3.35),
+    ];
+    const curve = new THREE.CatmullRomCurve3(lowPts);
+    const lineMat = new THREE.LineBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.28 });
+    aeroGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(56)), lineMat));
+
+    const beads = [];
+    for (let b = 0; b < 2; b++) {
+      const beadGeo = new THREE.SphereGeometry(0.016, 8, 8);
+      beadGeo.scale(1, 0.8, 3.8);
+      const beadMat = new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.88 });
+      const bead = new THREE.Mesh(beadGeo, beadMat);
+      aeroGroup.add(bead);
+      beads.push({ mesh: bead, phase: b / 2 });
+    }
+    streamEntries.push({ curve, lineMat, beads });
+  }
+
+  function update(dt, speedKmh, elapsed) {
+    if (!aeroGroup.visible) return;
+    const speedFactor = Math.max(0.25, speedKmh / 140);
+    // Color transitions from cool cyan (<120) -> lightning yellow (240) -> track orange-red (350)
+    const tNorm = Math.min(1, speedKmh / 340);
+    const streamColor = new THREE.Color().setHSL(0.55 - tNorm * 0.48, 0.92, 0.60);
+
+    for (const entry of streamEntries) {
+      entry.lineMat.color.copy(streamColor);
+      entry.lineMat.opacity = 0.18 + tNorm * 0.32;
+      for (const b of entry.beads) {
+        const u = (elapsed * 0.42 * speedFactor + b.phase) % 1;
+        const pos = entry.curve.getPointAt(u);
+        const tan = entry.curve.getTangentAt(u);
+        b.mesh.position.copy(pos);
+        b.mesh.lookAt(pos.clone().add(tan));
+        b.mesh.material.color.copy(streamColor);
+      }
+    }
+  }
+
+  return { aeroGroup, update };
+}
+
+function buildCarInternals(mats) {
+  const root = new THREE.Group();
+  root.name = 'SU7_Internals_Root';
+
+  const spinningRotors = [];
+  const rotatingWheels = [];
+
+  // 1. Structural Chassis Underbody, Front Crash Rails, Radiator & 9100t Rear Gigacasting
+  const chassisGroup = new THREE.Group();
+  chassisGroup.name = 'ChassisGroup';
+  chassisGroup.userData.basePos = new THREE.Vector3(0, 0, 0);
+  chassisGroup.userData.explodeOffset = new THREE.Vector3(0, -0.14, 0);
+
+  // Flat carbon-composite aero undertray (y = 0.135 m, cleanly above ground)
+  const undertray = new THREE.Mesh(new RoundedBoxGeometry(1.56, 0.024, 3.65, 2, 0.008), mats.carbonMatte);
+  undertray.position.set(0, 0.142, 0.0);
+  undertray.receiveShadow = true;
+  chassisGroup.add(undertray);
+
+  // Front extruded aluminum longitudinal crash rails + crossbeam
+  for (const side of [1, -1]) {
+    const fRail = new THREE.Mesh(new RoundedBoxGeometry(0.085, 0.11, 1.05, 2, 0.012), mats.castAlu);
+    fRail.position.set(side * 0.44, 0.38, 1.56);
+    chassisGroup.add(fRail);
+  }
+  const fCrashBeam = new THREE.Mesh(new RoundedBoxGeometry(1.24, 0.10, 0.09, 2, 0.015), mats.castAlu);
+  fCrashBeam.position.set(0, 0.36, 2.16);
+  chassisGroup.add(fCrashBeam);
+
+  // Front Angled Cooling Radiator Stack
+  const radiator = new THREE.Mesh(new RoundedBoxGeometry(0.96, 0.34, 0.065, 2, 0.01), mats.darkCastAlu);
+  radiator.position.set(0, 0.34, 2.04);
+  radiator.rotation.x = -0.32;
+  chassisGroup.add(radiator);
+
+  // Rear 9100t Die-Cast Aluminum Gigacasting Floor Structure
+  const gigaBase = new THREE.Mesh(new RoundedBoxGeometry(1.16, 0.065, 0.92, 2, 0.012), mats.castAlu);
+  gigaBase.position.set(0, 0.25, -1.54);
+  chassisGroup.add(gigaBase);
+
+  for (const side of [1, -1]) {
+    const rRail = new THREE.Mesh(new RoundedBoxGeometry(0.09, 0.11, 0.98, 2, 0.014), mats.castAlu);
+    rRail.position.set(side * 0.48, 0.40, -1.52);
+    chassisGroup.add(rRail);
+  }
+
+  // 2. CATL Qilin II 93.7 kWh Track Battery Pack (CTB)
+  const batteryGroup = new THREE.Group();
+  batteryGroup.name = 'QilinBatteryGroup';
+  batteryGroup.userData.basePos = new THREE.Vector3(0, 0, 0);
+  batteryGroup.userData.explodeOffset = new THREE.Vector3(0, -0.46, 0);
+
+  // Perimeter anodized aluminum housing tray
+  const batTray = new THREE.Mesh(new RoundedBoxGeometry(1.44, 0.095, 2.02, 3, 0.018), mats.batteryShell);
+  batTray.position.set(0, 0.215, -0.02);
+  batTray.castShadow = true;
+  batteryGroup.add(batTray);
+
+  // 16 distinct prismatic Qilin II cell rows + cooling ribbons sitting visibly on top deck
+  for (let i = 0; i < 16; i++) {
+    const zPos = -0.88 + i * 0.114;
+    const cellRow = new THREE.Mesh(new RoundedBoxGeometry(1.26, 0.065, 0.088, 2, 0.008), mats.batteryCell);
+    cellRow.position.set(0, 0.248, zPos);
+    batteryGroup.add(cellRow);
+
+    const coolPlate = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.068, 0.010), mats.coolantPipe);
+    coolPlate.position.set(0, 0.248, zPos + 0.052);
+    batteryGroup.add(coolPlate);
+  }
+
+  // Central longitudinal structural beam + Front BMS High-Voltage PDU
+  const batSpine = new THREE.Mesh(new RoundedBoxGeometry(0.11, 0.082, 1.94, 2, 0.01), mats.darkCastAlu);
+  batSpine.position.set(0, 0.258, -0.02);
+  batteryGroup.add(batSpine);
+
+  const bmsBox = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.095, 0.24, 2, 0.015), mats.darkCastAlu);
+  bmsBox.position.set(0, 0.295, 0.92);
+  batteryGroup.add(bmsBox);
+
+  // 3. Front HyperEngine V6s Drive Unit + Double Wishbone Suspension
+  const frontMotorGroup = new THREE.Group();
+  frontMotorGroup.name = 'FrontMotorV6sGroup';
+  frontMotorGroup.userData.basePos = new THREE.Vector3(0, 0, 0);
+  frontMotorGroup.userData.explodeOffset = new THREE.Vector3(0, 0.18, 0.42);
+
+  const v6s = buildElectricDriveUnit({ name: 'HyperEngine_V6s', width: 0.42, outerR: 0.145, mats });
+  v6s.unit.position.set(0, 0.360, 1.500);
+  frontMotorGroup.add(v6s.unit);
+  spinningRotors.push({ group: v6s.rotorGroup, ratio: 8.14 });
+
+  // Front half-shafts, double-wishbone arms & Bilstein yellow coilovers
+  for (const side of [1, -1]) {
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.56, 12), mats.siliconSteel);
+    axle.rotation.z = Math.PI / 2;
+    axle.position.set(side * 0.48, 0.360, 1.500);
+    frontMotorGroup.add(axle);
+
+    const lowArm = new THREE.Mesh(new RoundedBoxGeometry(0.46, 0.028, 0.12, 2, 0.008), mats.castAlu);
+    lowArm.position.set(side * 0.50, 0.26, 1.500);
+    frontMotorGroup.add(lowArm);
+
+    const upArm = new THREE.Mesh(new RoundedBoxGeometry(0.36, 0.024, 0.09, 2, 0.006), mats.castAlu);
+    upArm.position.set(side * 0.52, 0.49, 1.500);
+    frontMotorGroup.add(upArm);
+
+    // Bilstein Coilover damper + yellow helical spring
+    const strut = new THREE.Group();
+    strut.position.set(side * 0.56, 0.52, 1.500);
+    strut.rotation.z = side * 0.22;
+    const damper = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.42, 12), mats.darkCastAlu);
+    const spring = buildHelicalSpring(0.044, 0.009, 6, 0.24, mats.suspensionSpring);
+    strut.add(damper, spring);
+    frontMotorGroup.add(strut);
+  }
+
+  // 4. Rear Dual Independent HyperEngine V8s Drive Units + 5-Link Suspension
+  const rearMotorsGroup = new THREE.Group();
+  rearMotorsGroup.name = 'RearMotorsV8sGroup';
+  rearMotorsGroup.userData.basePos = new THREE.Vector3(0, 0, 0);
+  rearMotorsGroup.userData.explodeOffset = new THREE.Vector3(0, 0.18, -0.45);
+
+  for (const side of [1, -1]) {
+    const v8s = buildElectricDriveUnit({
+      name: `HyperEngine_V8s_${side > 0 ? 'L' : 'R'}`,
+      width: 0.36,
+      outerR: 0.162,
+      mats,
+    });
+    v8s.unit.position.set(side * 0.245, 0.360, -1.500);
+    rearMotorsGroup.add(v8s.unit);
+    spinningRotors.push({ group: v8s.rotorGroup, ratio: 10.62 });
+
+    // Rear half-shaft + 5-link arms + coilover
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.40, 12), mats.siliconSteel);
+    axle.rotation.z = Math.PI / 2;
+    axle.position.set(side * 0.58, 0.360, -1.500);
+    rearMotorsGroup.add(axle);
+
+    const lowLink = new THREE.Mesh(new RoundedBoxGeometry(0.44, 0.030, 0.14, 2, 0.008), mats.castAlu);
+    lowLink.position.set(side * 0.54, 0.26, -1.500);
+    rearMotorsGroup.add(lowLink);
+
+    const strut = new THREE.Group();
+    strut.position.set(side * 0.56, 0.53, -1.500);
+    strut.rotation.z = side * 0.18;
+    const damper = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.44, 12), mats.darkCastAlu);
+    const spring = buildHelicalSpring(0.044, 0.009, 6, 0.25, mats.suspensionSpring);
+    strut.add(damper, spring);
+    rearMotorsGroup.add(strut);
+  }
+
+  // 5. 897V High-Voltage Orange Wiring Harness & Coolant Piping
+  const harnessGroup = new THREE.Group();
+  harnessGroup.name = 'HVHarnessGroup';
+  harnessGroup.userData.basePos = new THREE.Vector3(0, 0, 0);
+  harnessGroup.userData.explodeOffset = new THREE.Vector3(0, 0.08, 0);
+
+  const hvRoutes = [
+    // Forward HV bus from battery BMS to Front V6s inverter
+    [
+      new THREE.Vector3(0.06, 0.30, 0.94),
+      new THREE.Vector3(0.06, 0.34, 1.25),
+      new THREE.Vector3(0.04, 0.56, 1.48),
+    ],
+    [
+      new THREE.Vector3(-0.06, 0.30, 0.94),
+      new THREE.Vector3(-0.06, 0.34, 1.25),
+      new THREE.Vector3(-0.04, 0.56, 1.48),
+    ],
+    // Rear HV bus splitting into Dual V8s inverters
+    [
+      new THREE.Vector3(0.08, 0.29, -0.96),
+      new THREE.Vector3(0.18, 0.36, -1.25),
+      new THREE.Vector3(0.24, 0.58, -1.48),
+    ],
+    [
+      new THREE.Vector3(-0.08, 0.29, -0.96),
+      new THREE.Vector3(-0.18, 0.36, -1.25),
+      new THREE.Vector3(-0.24, 0.58, -1.48),
+    ],
+  ];
+  for (const pts of hvRoutes) {
+    const cable = new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.015, 8, false),
+      mats.hvOrange
+    );
+    harnessGroup.add(cable);
+  }
+
+  // Brushed stainless thermal coolant pipes from front radiator to battery
+  for (const side of [1, -1]) {
+    const pipePts = [
+      new THREE.Vector3(side * 0.34, 0.32, 1.98),
+      new THREE.Vector3(side * 0.34, 0.24, 1.45),
+      new THREE.Vector3(side * 0.30, 0.24, 0.98),
+    ];
+    const pipe = new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pipePts), 20, 0.013, 8, false),
+      mats.coolantPipe
+    );
+    harnessGroup.add(pipe);
+  }
+
+  // 6. Four 21" Forged Wheels + Pirelli Tires + 430mm/410mm Carbon-Ceramic Brakes
+  const cornersSpec = [
+    { isFront: true, side: 1 },
+    { isFront: true, side: -1 },
+    { isFront: false, side: 1 },
+    { isFront: false, side: -1 },
+  ];
+  const cornerGroups = [];
+  for (const spec of cornersSpec) {
+    const c = buildWheelCorner({ ...spec, mats });
+    root.add(c.cornerGroup);
+    cornerGroups.push(c.cornerGroup);
+    rotatingWheels.push(c.spinGroup);
+  }
+
+  // 7. Aerodynamic Airflow Streamlines
+  const aeroCtrl = buildAeroStreamlines();
+
+  root.add(chassisGroup, batteryGroup, frontMotorGroup, rearMotorsGroup, harnessGroup, aeroCtrl.aeroGroup);
+
+  const explodeGroups = [
+    chassisGroup,
+    batteryGroup,
+    frontMotorGroup,
+    rearMotorsGroup,
+    harnessGroup,
+    ...cornerGroups,
+  ];
+
+  return {
+    root,
+    explodeGroups,
+    aeroCtrl,
+    // Advance rotating wheels (at true angular velocity) and motor rotors (scaled 1:60 for visual clarity)
+    stepKinematics(dt, speedMps) {
+      const wheelOmega = speedMps / 0.360;
+      const dWheel = wheelOmega * dt;
+      for (const w of rotatingWheels) {
+        w.rotation.x += dWheel;
+      }
+      for (const r of spinningRotors) {
+        r.group.rotation.x += (dWheel * r.ratio) / 60;
+      }
+    },
+  };
+}
+
+
+// === src/04-physics.js ===
+// Real-time longitudinal, aerodynamic, powertrain & thermal solver for Xiaomi SU7 Ultra
+
+function createPhysicsEngine() {
+  const MASS = 2360; // kg curb weight
+  const RHO = 1.225; // kg/m^3 air density
+  const AREA = 2.38; // m^2 frontal area
+  const WHEEL_R = 0.360; // m tire outer radius
+  const G = 9.80665;
+  const GEAR_V8S = 10.55; // rear dual motors -> 27,200 rpm at 350 km/h
+  const GEAR_V6S = 8.14;  // front motor -> ~21,000 rpm at 350 km/h
+
+  const DRIVE_MODES = {
+    novice:     { label: '新手模式', maxKw: 662,  maxPs: 900,  topKmh: 140, maxTorque: 1080 },
+    sport:      { label: '运动模式', maxKw: 846,  maxPs: 1150, topKmh: 260, maxTorque: 1380 },
+    track:      { label: '赛道模式', maxKw: 1030, maxPs: 1400, topKmh: 318, maxTorque: 1620 },
+    qualifying: { label: '排位模式', maxKw: 1138, maxPs: 1548, topKmh: 350, maxTorque: 1770 },
+  };
+
+  const state = {
+    driveMode: 'qualifying',
+    gtWing: true,
+    targetSpeedKmh: 0,
+    speedMps: 0,
+    speedKmh: 0,
+    powerKw: 0,
+    powerPs: 0,
+    torqueNm: 0,
+    v8sRpm: 0,
+    v6sRpm: 0,
+    downforceKgf: 0,
+    dragN: 0,
+    accelG: 0,
+    pitchRad: 0,
+    brakeTempC: 42,
+    batteryTempC: 28,
+    statorTempC: 38,
+    launchActive: false,
+    launchTimer: 0,
+    split0to100: null,
+    split0to200: null,
+    brakeTestActive: false,
+    derateActive: false,
+    statusText: '展厅待机 · 897V 就绪',
+    isWarning: false,
+  };
+
+  function setDriveMode(modeKey) {
+    if (DRIVE_MODES[modeKey]) {
+      state.driveMode = modeKey;
+      const cap = DRIVE_MODES[modeKey].topKmh;
+      if (state.targetSpeedKmh > cap) state.targetSpeedKmh = cap;
+    }
+  }
+
+  function startLaunch() {
+    state.brakeTestActive = false;
+    state.derateActive = false;
+    state.launchActive = true;
+    state.launchTimer = 0;
+    state.split0to100 = null;
+    state.split0to200 = null;
+    state.speedMps = 0;
+    state.speedKmh = 0;
+    state.targetSpeedKmh = DRIVE_MODES[state.driveMode].topKmh;
+  }
+
+  function startBrakeTest() {
+    state.launchActive = false;
+    state.derateActive = false;
+    state.brakeTestActive = true;
+    state.speedKmh = 350;
+    state.speedMps = 350 / 3.6;
+    state.targetSpeedKmh = 0;
+  }
+
+  function toggleDerateStress() {
+    state.derateActive = !state.derateActive;
+    state.brakeTestActive = false;
+    state.launchActive = false;
+    if (state.derateActive) {
+      state.targetSpeedKmh = Math.min(295, DRIVE_MODES[state.driveMode].topKmh);
+    }
+  }
+
+  function step(dtRaw) {
+    const dt = Math.min(0.05, Math.max(0.001, dtRaw));
+    const mode = DRIVE_MODES[state.driveMode];
+
+    // Aerodynamic coefficients
+    const cd = state.gtWing ? 0.255 : 0.215;
+    const cla = state.gtWing ? 0.483 : 0.210; // m^2 (C_L * A)
+
+    // Thermal dynamics
+    const batTarget = state.derateActive
+      ? 64.5
+      : 28 + (state.powerKw / 1138) * 18 + (state.speedKmh / 350) * 6;
+    state.batteryTempC += (batTarget - state.batteryTempC) * (1 - Math.exp(-dt / (state.derateActive ? 1.8 : 6.0)));
+
+    const statorTarget = state.derateActive
+      ? 174
+      : 38 + (state.powerKw / 1138) * 85;
+    state.statorTempC += (statorTarget - state.statorTempC) * (1 - Math.exp(-dt / (state.derateActive ? 1.6 : 5.0)));
+
+    // Power derating factor when battery > 52 C or stator > 155 C
+    const batDerate = 1 - 0.32 * Math.min(1, Math.max(0, (state.batteryTempC - 52) / 12));
+    const motorDerate = 1 - 0.25 * Math.min(1, Math.max(0, (state.statorTempC - 155) / 22));
+    const thermalMult = Math.max(0.65, Math.min(batDerate, motorDerate));
+    const availKw = mode.maxKw * thermalMult;
+
+    // Aerodynamic forces at current velocity
+    const v = state.speedMps;
+    const q = 0.5 * RHO * v * v;
+    const downforceN = q * cla;
+    state.downforceKgf = downforceN / G;
+    state.dragN = q * cd * AREA;
+    const rollingN = 0.011 * (MASS * G + downforceN);
+
+    let netForceN = 0;
+    let wheelPowerW = 0;
+
+    if (state.brakeTestActive) {
+      // High-load 350 -> 0 carbon-ceramic braking (~1.85g aided by aero downforce)
+      const brakeGrip = 1.68 * (MASS * G + downforceN * 0.72);
+      netForceN = -(brakeGrip + state.dragN + rollingN);
+      const decel = netForceN / MASS;
+      const nextV = Math.max(0, v + decel * dt);
+      const dKE = 0.5 * MASS * (v * v - nextV * nextV);
+      // Surface flash heat into 4 carbon-ceramic discs (~62% thermal share, 14.2 kg effective surface thermal mass)
+      const dTemp = (dKE * 0.62) / (14.2 * 760);
+      state.brakeTempC = Math.min(1140, state.brakeTempC + dTemp * 1.48);
+      state.speedMps = nextV;
+      wheelPowerW = 0;
+      if (nextV <= 0.1) {
+        state.speedMps = 0;
+        state.brakeTestActive = false;
+      }
+    } else {
+      const targetV = Math.min(mode.topKmh, state.targetSpeedKmh) / 3.6;
+      const vErr = targetV - v;
+
+      if (state.launchActive || vErr > 0.35) {
+        const throttle = state.launchActive ? 1.0 : Math.min(1.0, Math.max(0.15, vErr / 14));
+        const pWatts = availKw * 1000 * throttle;
+        const maxTractionN = 1.48 * (MASS * G + downforceN * 0.55);
+        const motorTorqueForce = (mode.maxTorque * throttle * thermalMult * 10.55) / WHEEL_R;
+        const driveForce = v > 1.0
+          ? Math.min(maxTractionN, motorTorqueForce, pWatts / v)
+          : Math.min(maxTractionN, motorTorqueForce);
+
+        netForceN = driveForce - state.dragN - rollingN;
+        const nextV = Math.max(0, Math.min(mode.topKmh / 3.6, v + (netForceN / MASS) * dt));
+        state.speedMps = nextV;
+        wheelPowerW = driveForce * Math.max(v, 1.0);
+
+        if (state.launchActive) {
+          state.launchTimer += dt;
+          const kmh = nextV * 3.6;
+          if (state.split0to100 === null && kmh >= 100) {
+            state.split0to100 = state.launchTimer;
+          }
+          if (state.split0to200 === null && kmh >= 200) {
+            state.split0to200 = state.launchTimer;
+          }
+          if (kmh >= mode.topKmh - 0.5) {
+            state.launchActive = false;
+          }
+        }
+      } else if (vErr < -0.5) {
+        // Regenerative + light brake deceleration toward target
+        const decelForce = Math.min(0.65 * MASS * G, Math.abs(vErr) * 1400);
+        netForceN = -decelForce - state.dragN - rollingN;
+        state.speedMps = Math.max(targetV, v + (netForceN / MASS) * dt);
+        wheelPowerW = 0;
+      } else {
+        // Steady cruise equilibrium
+        const steadyForce = state.dragN + rollingN;
+        netForceN = 0;
+        state.speedMps = targetV;
+        wheelPowerW = steadyForce * targetV;
+      }
+
+      // Convective cooling of carbon-ceramic discs
+      const coolTau = Math.max(4.5, 16 - (state.speedKmh / 350) * 10.5);
+      state.brakeTempC += (42 - state.brakeTempC) * (1 - Math.exp(-dt / coolTau));
+    }
+
+    state.speedKmh = state.speedMps * 3.6;
+    state.accelG = (netForceN / MASS) / G;
+    state.pitchRad += ((state.accelG * 0.014) - state.pitchRad) * (1 - Math.exp(-dt / 0.14));
+
+    const targetKw = state.speedKmh < 0.2 && !state.launchActive ? 0 : Math.min(availKw, wheelPowerW / 1000);
+    state.powerKw += (targetKw - state.powerKw) * (1 - Math.exp(-dt / 0.08));
+    state.powerPs = state.powerKw * 1.35962;
+
+    const wheelRpm = (state.speedMps / WHEEL_R) * (60 / (Math.PI * 2));
+    state.v8sRpm = wheelRpm * GEAR_V8S;
+    state.v6sRpm = wheelRpm * GEAR_V6S;
+
+    // Status message & warning flag
+    state.isWarning = thermalMult < 0.94 || state.brakeTempC > 680;
+    if (state.brakeTestActive || state.brakeTempC > 720) {
+      state.statusText = `碳陶盘高热 · ${Math.round(state.brakeTempC)} °C`;
+    } else if (thermalMult < 0.94) {
+      state.statusText = `热衰限功率 · ${Math.round(thermalMult * 100)}% 输出`;
+    } else if (state.launchActive) {
+      const s100 = state.split0to100 ? ` · 0-100: ${state.split0to100.toFixed(2)}s` : '';
+      state.statusText = `全力弹射加速中${s100}`;
+    } else if (state.speedKmh > 280) {
+      state.statusText = `${mode.label} · 极速空气动力学压载`;
+    } else if (state.speedKmh > 1) {
+      state.statusText = `${mode.label} · 三电机扭矩矢量驱动`;
+    } else {
+      state.statusText = `展厅待机 · ${mode.label}就绪`;
+    }
+
+    return state;
+  }
+
+  return {
+    state,
+    DRIVE_MODES,
+    setDriveMode,
+    startLaunch,
+    startBrakeTest,
+    toggleDerateStress,
+    step,
+  };
+}
+
+
+// === src/05-app.js ===
+// Main 3D studio scene, lighting themes, modes, hotspots, camera presets, GLB loader & UI bindings
+
+function buildStudioEnvironment(renderer) {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const envScene = new THREE.Scene();
+  envScene.background = new THREE.Color('#090b10');
+
+  const panelMat = (color, intensity = 1) => {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 128;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(64, 64, 8, 64, 64, 62);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.65, 'rgba(255,255,255,0.55)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 128, 128);
+    const softTex = new THREE.CanvasTexture(c);
+    return new THREE.MeshBasicMaterial({
+      color: new THREE.Color(color).multiplyScalar(intensity),
+      map: softTex,
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
+  };
+
+  // Overhead primary longitudinal softbox strips (feathered studio diffusers)
+  const mainStrip = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 16), panelMat('#ffffff', 1.25));
+  mainStrip.position.set(0, 7.8, 0);
+  mainStrip.rotation.x = Math.PI / 2;
+  envScene.add(mainStrip);
+
+  const sideStripL = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 15), panelMat('#e8f1ff', 0.88));
+  sideStripL.position.set(5.6, 4.4, 0);
+  sideStripL.rotation.z = -Math.PI / 3;
+  sideStripL.rotation.y = -Math.PI / 2;
+  envScene.add(sideStripL);
+
+  const sideStripR = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 15), panelMat('#fff3dc', 0.80));
+  sideStripR.position.set(-5.6, 4.4, 0);
+  sideStripR.rotation.z = Math.PI / 3;
+  sideStripR.rotation.y = Math.PI / 2;
+  envScene.add(sideStripR);
+
+  // Low horizon accent strips to carve crisp shoulder reflections along doors & fenders
+  const horizonL = new THREE.Mesh(new THREE.PlaneGeometry(16, 0.65), panelMat('#9cc2ff', 0.72));
+  horizonL.position.set(6.8, 1.35, 0);
+  horizonL.rotation.y = -Math.PI / 2;
+  envScene.add(horizonL);
+
+  const horizonR = new THREE.Mesh(new THREE.PlaneGeometry(16, 0.65), panelMat('#ffdca8', 0.68));
+  horizonR.position.set(-6.8, 1.35, 0);
+  horizonR.rotation.y = Math.PI / 2;
+  envScene.add(horizonR);
+
+  const rt = pmrem.fromScene(envScene, 0.04);
+  pmrem.dispose();
+  return rt.texture;
+}
+
+function buildContactShadowPlane() {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 512;
+  const ctx = c.getContext('2d');
+
+  // Broad underbody ambient occlusion shadow
+  const bodyGrad = ctx.createRadialGradient(256, 256, 30, 256, 256, 225);
+  bodyGrad.addColorStop(0, 'rgba(0,0,0,0.82)');
+  bodyGrad.addColorStop(0.55, 'rgba(0,0,0,0.48)');
+  bodyGrad.addColorStop(1, 'rgba(0,0,0,0.0)');
+  ctx.save();
+  ctx.translate(256, 256);
+  ctx.scale(0.56, 1.0);
+  ctx.translate(-256, -256);
+  ctx.fillStyle = bodyGrad;
+  ctx.fillRect(0, 0, 512, 512);
+  ctx.restore();
+
+  // Four tight tire contact puddles
+  const drawWheelPuddle = (nx, nz) => {
+    const px = 256 + nx * 165;
+    const py = 256 + nz * 150;
+    const g = ctx.createRadialGradient(px, py, 4, px, py, 34);
+    g.addColorStop(0, 'rgba(0,0,0,0.95)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(px, py, 34, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  drawWheelPuddle(0.84, 1.0);
+  drawWheelPuddle(-0.84, 1.0);
+  drawWheelPuddle(0.84, -1.0);
+  drawWheelPuddle(-0.84, -1.0);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshBasicMaterial({
+    map: tex,
+    transparent: true,
+    opacity: 0.72,
+    depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 5.8), mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = 0.002;
+  return mesh;
+}
+
+function createXRayEdgeOverlay(exteriorEntries) {
+  const edgeGroup = new THREE.Group();
+  edgeGroup.name = 'XRayWireframeEdges';
+  edgeGroup.visible = false;
+  const edgeMat = new THREE.LineBasicMaterial({
+    color: 0x74e3ff,
+    transparent: true,
+    opacity: 0.38,
+  });
+
+  for (const entry of exteriorEntries) {
+    // Only trace body panels & wing (skip tiny lights/badges)
+    const box = new THREE.Box3().setFromObject(entry.mesh);
+    const size = box.getSize(new THREE.Vector3());
+    if (size.length() < 0.35) continue;
+    const edges = new THREE.EdgesGeometry(entry.mesh.geometry, 26);
+    const line = new THREE.LineSegments(edges, edgeMat);
+    line.position.copy(entry.mesh.position);
+    line.rotation.copy(entry.mesh.rotation);
+    line.scale.copy(entry.mesh.scale);
+    entry.mesh.parent.add(line);
+    line.visible = false;
+    entry.edgeLine = line;
+  }
+  return edgeGroup;
+}
+
+function initSU7Showroom() {
+  const wrap = document.getElementById('canvas-wrap');
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    powerPreference: 'high-performance',
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.08;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.localClippingEnabled = true;
+  wrap.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#0B0D12');
+  scene.fog = new THREE.Fog('#0B0D12', 14, 34);
+  scene.environment = buildStudioEnvironment(renderer);
+
+  const camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.08, 100);
+  camera.position.set(4.85, 1.72, 5.45);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.target.set(0.05, 0.56, 0.0);
+  controls.minDistance = 1.85;
+  controls.maxDistance = 14.0;
+  controls.maxPolarAngle = Math.PI * 0.492;
+  controls.autoRotateSpeed = 0.75;
+
+  // Post-processing pipeline (Bloom triggers only on true emissive LEDs/hot brakes >= 2.25)
+  const composer = new EffectComposer(renderer);
+  const renderPass = new RenderPass(scene, camera);
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.26,
+    0.36,
+    2.25
+  );
+  const outputPass = new OutputPass();
+  composer.addPass(renderPass);
+  composer.addPass(bloomPass);
+  composer.addPass(outputPass);
+
+  // Studio Floor & Lighting Rig
+  const floorMat = new THREE.MeshStandardMaterial({
+    color: '#12151d',
+    metalness: 0.22,
+    roughness: 0.36,
+    envMapIntensity: 0.85,
+  });
+  const floorMesh = new THREE.Mesh(new THREE.CircleGeometry(28, 72), floorMat);
+  floorMesh.rotation.x = -Math.PI / 2;
+  floorMesh.receiveShadow = true;
+  scene.add(floorMesh);
+
+  // Subtle floor turntable spotlight ring
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: '#EBBF00',
+    transparent: true,
+    opacity: 0.18,
+  });
+  const studioRing = new THREE.Mesh(new THREE.RingGeometry(2.85, 2.885, 96), ringMat);
+  studioRing.rotation.x = -Math.PI / 2;
+  studioRing.position.y = 0.003;
+  scene.add(studioRing);
+
+  const contactShadow = buildContactShadowPlane();
+  scene.add(contactShadow);
+
+  const hemiLight = new THREE.HemisphereLight('#dfeaff', '#1c1f28', 0.90);
+  const keyLight = new THREE.DirectionalLight('#ffffff', 1.90);
+  keyLight.position.set(4.5, 7.2, 4.2);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(2048, 2048);
+  keyLight.shadow.camera.near = 1;
+  keyLight.shadow.camera.far = 20;
+  keyLight.shadow.camera.left = -4.2;
+  keyLight.shadow.camera.right = 4.2;
+  keyLight.shadow.camera.top = 4.2;
+  keyLight.shadow.camera.bottom = -4.2;
+  keyLight.shadow.bias = -0.0005;
+
+  const rimCool = new THREE.DirectionalLight('#8ac7ff', 0.92);
+  rimCool.position.set(-5.0, 3.4, -4.5);
+
+  const rimWarm = new THREE.DirectionalLight('#ffd296', 0.72);
+  rimWarm.position.set(4.5, 2.2, -5.0);
+
+  scene.add(hemiLight, keyLight, rimCool, rimWarm);
+
+  // Build SU7 Ultra Procedural Car + Internals + Physics
+  const mats = createMaterialsLibrary();
+  const bodyCtrl = buildCarBody(mats);
+  const internalCtrl = buildCarInternals(mats);
+  createXRayEdgeOverlay(bodyCtrl.exteriorMeshEntries);
+
+  const carPitchGroup = new THREE.Group();
+  carPitchGroup.name = 'SU7_Vehicle_Pitch_Rig';
+  carPitchGroup.add(bodyCtrl.root, internalCtrl.root);
+  scene.add(carPitchGroup);
+
+  // Custom GLB Container
+  const customGlbGroup = new THREE.Group();
+  customGlbGroup.visible = false;
+  scene.add(customGlbGroup);
+
+  const physics = createPhysicsEngine();
+
+  // Application State
+  const appState = {
+    mode: 'showroom', // showroom | xray | explode | cutaway
+    theme: 'dark',    // dark | light | track
+    paint: 'yellow',
+    explodeTarget: 0,
+    explodeCurrent: 0,
+    cutawayTarget: 0.52,
+    cutawayCurrent: 0.52,
+    labelsEnabled: false,
+    aeroEnabled: false,
+    lightsOn: true,
+    stripeOn: true,
+    carbonHood: true,
+    gtWing: true,
+    autoRotate: false,
+    usingCustomGlb: false,
+  };
+
+  // Camera Presets (framed cleanly inside unobstructed center viewport)
+  const CAMERA_PRESETS = {
+    hero:       { pos: [4.85, 1.72, 5.45],   target: [0.05, 0.56, 0.0] },
+    front:      { pos: [0.0,  1.08, 6.20],   target: [0.0, 0.54, 0.35] },
+    side:       { pos: [6.85, 1.22, 0.0],    target: [0.0, 0.56, 0.0] },
+    rear:       { pos: [-4.75, 1.76, -5.35], target: [-0.18, 0.50, -0.25] },
+    top:        { pos: [0.0,  7.40, 0.95],   target: [0.0, 0.45, 0.0] },
+    wheel:      { pos: [2.45, 0.66, 2.02],   target: [0.80, 0.36, 1.48] },
+    powertrain: { pos: [-4.15, 2.30, -3.90], target: [-0.05, 0.36, -0.15] },
+  };
+
+  let camTween = null;
+  function setPreset(key) {
+    const p = CAMERA_PRESETS[key];
+    if (!p) return;
+    camTween = {
+      startPos: camera.position.clone(),
+      startTarget: controls.target.clone(),
+      endPos: new THREE.Vector3(...p.pos),
+      endTarget: new THREE.Vector3(...p.target),
+      t: 0,
+      dur: 0.72,
+    };
+    document.querySelectorAll('#cam-presets .cam-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.preset === key);
+    });
+  }
+
+  // Lighting Themes
+  const THEMES = {
+    dark: {
+      label: '环境：暗调展厅',
+      bodyClass: 'theme-dark',
+      bg: '#0B0D12',
+      floor: '#12151d',
+      floorMetal: 0.24,
+      floorRough: 0.35,
+      hemiSky: '#dfeaff',
+      hemiGnd: '#1c1f28',
+      hemiInt: 0.90,
+      keyInt: 1.90,
+      rimCoolInt: 0.92,
+      rimWarmInt: 0.72,
+      ringOpacity: 0.18,
+      bloomStrength: 0.26,
+    },
+    light: {
+      label: '环境：白棚工程',
+      bodyClass: 'theme-light',
+      bg: '#EAECE8',
+      floor: '#E1E3DE',
+      floorMetal: 0.02,
+      floorRough: 0.78,
+      hemiSky: '#ffffff',
+      hemiGnd: '#d4d6d1',
+      hemiInt: 1.35,
+      keyInt: 2.25,
+      rimCoolInt: 0.75,
+      rimWarmInt: 0.65,
+      ringOpacity: 0.14,
+      bloomStrength: 0.16,
+    },
+    track: {
+      label: '环境：夜赛维修',
+      bodyClass: 'theme-dark',
+      bg: '#050810',
+      floor: '#0b0e16',
+      floorMetal: 0.42,
+      floorRough: 0.22,
+      hemiSky: '#7ab2ff',
+      hemiGnd: '#0d1018',
+      hemiInt: 0.55,
+      keyInt: 1.85,
+      rimCoolInt: 2.10,
+      rimWarmInt: 1.45,
+      ringOpacity: 0.28,
+      bloomStrength: 0.52,
+    },
+  };
+
+  function setTheme(themeKey) {
+    const t = THEMES[themeKey];
+    if (!t) return;
+    appState.theme = themeKey;
+    document.body.classList.remove('theme-dark', 'theme-light');
+    document.body.classList.add(t.bodyClass);
+    scene.background.set(t.bg);
+    scene.fog.color.set(t.bg);
+    floorMat.color.set(t.floor);
+    floorMat.metalness = t.floorMetal;
+    floorMat.roughness = t.floorRough;
+    hemiLight.color.set(t.hemiSky);
+    hemiLight.groundColor.set(t.hemiGnd);
+    hemiLight.intensity = t.hemiInt;
+    keyLight.intensity = t.keyInt;
+    rimCool.intensity = t.rimCoolInt;
+    rimWarm.intensity = t.rimWarmInt;
+    ringMat.opacity = t.ringOpacity;
+    bloomPass.strength = t.bloomStrength;
+    document.getElementById('btn-theme').textContent = t.label;
+  }
+
+  function setPaint(paintKey) {
+    const p = SU7_PAINTS[paintKey];
+    if (!p) return;
+    appState.paint = paintKey;
+    mats.bodyPaint.color.set(p.color);
+    mats.bodyPaint.metalness = p.metalness;
+    mats.bodyPaint.roughness = p.roughness;
+    mats.bodyPaintSecondary.color.set(p.color);
+    mats.stripeMat.color.set(p.stripeColor);
+    document.getElementById('paint-label').textContent = p.label;
+    document.querySelectorAll('#paint-swatches .swatch').forEach((el) => {
+      el.classList.toggle('active', el.dataset.paint === paintKey);
+    });
+  }
+
+  function setMode(mode) {
+    appState.mode = mode;
+    document.querySelectorAll('#mode-tabs .seg-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+
+    const sliderWrap = document.getElementById('mode-slider-wrap');
+    const sliderLabel = document.getElementById('mode-slider-label');
+    const slider = document.getElementById('mode-slider');
+    const sliderVal = document.getElementById('mode-slider-val');
+
+    // X-Ray toggle
+    const isXray = mode === 'xray';
+    for (const entry of bodyCtrl.exteriorMeshEntries) {
+      entry.mesh.material = isXray
+        ? (entry.isGlass ? mats.xrayGlassMat : mats.xrayShellMat)
+        : entry.origMat;
+      if (entry.edgeLine) entry.edgeLine.visible = isXray;
+    }
+
+    // Explode & Cutaway slider visibility
+    if (mode === 'explode') {
+      sliderWrap.classList.add('visible');
+      sliderLabel.textContent = '拆解程度';
+      if (appState.explodeTarget < 0.05) appState.explodeTarget = 0.85;
+      const pct = Math.round(appState.explodeTarget * 100);
+      slider.value = pct;
+      sliderVal.textContent = `${pct}%`;
+      mats.setCutawayActive(false, 10);
+    } else if (mode === 'cutaway') {
+      sliderWrap.classList.add('visible');
+      sliderLabel.textContent = '剖切深度';
+      appState.explodeTarget = 0;
+      const pct = Math.round(appState.cutawayTarget * 100);
+      slider.value = pct;
+      sliderVal.textContent = `${pct}%`;
+      const cutX = 1.15 - appState.cutawayTarget * 1.48;
+      mats.setCutawayActive(true, cutX);
+    } else {
+      sliderWrap.classList.remove('visible');
+      appState.explodeTarget = 0;
+      mats.setCutawayActive(false, 10);
+    }
+
+    // Auto-show 3D hotspots in engineering modes, clean look in showroom
+    const shouldShowLabels = mode !== 'showroom';
+    appState.labelsEnabled = shouldShowLabels;
+    document.getElementById('btn-labels').classList.toggle('active', shouldShowLabels);
+  }
+
+  // 3D Hotspot Annotations
+  const hotspotLayer = document.getElementById('hotspot-layer');
+  const HOTSPOTS = [
+    {
+      id: 'v8s',
+      title: 'HyperEngine V8s 双后电机',
+      pos: new THREE.Vector3(0.28, 0.48, -1.52),
+      explode: new THREE.Vector3(0, 0.18, -0.45),
+      preset: 'powertrain',
+      valueFn: (s) => `${Math.round(s.v8sRpm).toLocaleString()} rpm`,
+    },
+    {
+      id: 'v6s',
+      title: 'HyperEngine V6s 前电机',
+      pos: new THREE.Vector3(0, 0.56, 1.52),
+      explode: new THREE.Vector3(0, 0.18, 0.42),
+      preset: 'powertrain',
+      valueFn: (s) => `${Math.round(s.v6sRpm).toLocaleString()} rpm`,
+    },
+    {
+      id: 'battery',
+      title: '麒麟 II 93.7kWh 电池包',
+      pos: new THREE.Vector3(0.22, 0.25, -0.32),
+      explode: new THREE.Vector3(0, -0.46, 0),
+      preset: 'powertrain',
+      valueFn: (s) => `${s.batteryTempC.toFixed(0)} °C`,
+    },
+    {
+      id: 'brakes',
+      title: '430mm 碳陶盘 & Akebono',
+      pos: new THREE.Vector3(0.92, 0.42, 1.50),
+      explode: new THREE.Vector3(0.62, 0, 0.16),
+      preset: 'wheel',
+      valueFn: (s) => `${Math.round(s.brakeTempC)} °C`,
+    },
+    {
+      id: 'wing',
+      title: '1560mm 碳纤维 GT 尾翼',
+      pos: new THREE.Vector3(0, 1.29, -2.32),
+      explode: new THREE.Vector3(0, 0.92, -0.58),
+      preset: 'rear',
+      valueFn: (s) => `${Math.round(s.downforceKgf)} kgf`,
+    },
+    {
+      id: 'halo',
+      title: '光环尾灯 & 6鳍扩散器',
+      pos: new THREE.Vector3(0, 0.88, -2.50),
+      explode: new THREE.Vector3(0, 0.10, -0.62),
+      preset: 'rear',
+      valueFn: () => '897 V',
+    },
+  ];
+
+  const hotspotEls = HOTSPOTS.map((h) => {
+    const el = document.createElement('div');
+    el.className = 'hotspot';
+    el.innerHTML = `<span class="hotspot-dot"></span><span class="hotspot-title">${h.title}</span><span class="hotspot-val"></span>`;
+    el.addEventListener('click', () => {
+      if ((h.id === 'v8s' || h.id === 'v6s' || h.id === 'battery') && appState.mode === 'showroom') {
+        setMode('xray');
+      }
+      setPreset(h.preset);
+    });
+    hotspotLayer.appendChild(el);
+    return { ...h, el, valSpan: el.querySelector('.hotspot-val') };
+  });
+
+  const telemetryRectEl = document.querySelector('.telemetry-panel');
+  const configRectEl = document.getElementById('config-panel');
+
+  function updateHotspots(solverState) {
+    const show = appState.labelsEnabled && !appState.usingCustomGlb;
+    hotspotLayer.style.display = show ? 'block' : 'none';
+    if (!show) return;
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const tRect = telemetryRectEl ? telemetryRectEl.getBoundingClientRect() : null;
+    const cRect = configRectEl && !configRectEl.classList.contains('collapsed')
+      ? configRectEl.getBoundingClientRect()
+      : null;
+    const tmp = new THREE.Vector3();
+
+    const placed = [];
+    for (const item of hotspotEls) {
+      tmp.copy(item.pos);
+      if (item.explode && appState.explodeCurrent > 0.001) {
+        tmp.addScaledVector(item.explode, appState.explodeCurrent);
+      }
+      carPitchGroup.localToWorld(tmp);
+      tmp.project(camera);
+
+      const sx = (tmp.x * 0.5 + 0.5) * w;
+      let sy = (-tmp.y * 0.5 + 0.5) * h;
+      let visible = tmp.z < 1 && sx > 36 && sx < w - 36 && sy > 76 && sy < h - 36;
+
+      // Avoid occluding behind floating left/right HUD cards
+      if (visible && tRect && sx < tRect.right + 50 && sy > tRect.top - 24) visible = false;
+      if (visible && cRect && sx > cRect.left - 50 && sy > cRect.top - 20 && sy < cRect.bottom + 20) visible = false;
+
+      if (!visible) {
+        item.el.style.opacity = '0';
+        item.el.style.pointerEvents = 'none';
+        continue;
+      }
+
+      // 2D de-overlap against previously placed hotspot pills
+      for (const prev of placed) {
+        if (Math.abs(sx - prev.x) < 190 && Math.abs(sy - prev.y) < 32) {
+          sy = prev.y + (sy >= prev.y ? 34 : -34);
+        }
+      }
+      placed.push({ x: sx, y: sy });
+
+      item.el.style.opacity = '1';
+      item.el.style.pointerEvents = 'auto';
+      item.el.style.left = `${sx}px`;
+      item.el.style.top = `${sy}px`;
+      item.valSpan.textContent = item.valueFn(solverState);
+    }
+  }
+
+  // Custom GLB Loader
+  const gltfLoader = new GLTFLoader();
+  function loadCustomGlbFile(file) {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    gltfLoader.load(
+      url,
+      (gltf) => {
+        URL.revokeObjectURL(url);
+        while (customGlbGroup.children.length) {
+          customGlbGroup.remove(customGlbGroup.children[0]);
+        }
+        const model = gltf.scene;
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const maxHoriz = Math.max(size.x, size.z, 0.01);
+        const scale = 5.115 / maxHoriz;
+        model.scale.setScalar(scale);
+
+        // Recompute bounds after scaling and seat cleanly on y = 0 at x=0, z=0
+        model.updateMatrixWorld(true);
+        const scaledBox = new THREE.Box3().setFromObject(model);
+        const center = scaledBox.getCenter(new THREE.Vector3());
+        model.position.set(-center.x, -scaledBox.min.y, -center.z);
+
+        model.traverse((obj) => {
+          if (obj.isMesh) {
+            obj.castShadow = true;
+            obj.receiveShadow = true;
+          }
+        });
+
+        customGlbGroup.add(model);
+        customGlbGroup.visible = true;
+        carPitchGroup.visible = false;
+        appState.usingCustomGlb = true;
+        document.getElementById('btn-reset-glb').classList.add('visible');
+        setPreset('hero');
+      },
+      undefined,
+      (err) => {
+        URL.revokeObjectURL(url);
+        console.error('Failed to load GLB:', err);
+        alert('加载 GLB/GLTF 失败，请确认文件格式完整无损。');
+      }
+    );
+  }
+
+  function resetToBuiltInModel() {
+    customGlbGroup.visible = false;
+    while (customGlbGroup.children.length) {
+      customGlbGroup.remove(customGlbGroup.children[0]);
+    }
+    carPitchGroup.visible = true;
+    appState.usingCustomGlb = false;
+    document.getElementById('btn-reset-glb').classList.remove('visible');
+  }
+
+  // Bind UI Controls
+  document.querySelectorAll('#mode-tabs .seg-btn').forEach((btn) => {
+    btn.addEventListener('click', () => setMode(btn.dataset.mode));
+  });
+
+  document.getElementById('mode-slider').addEventListener('input', (e) => {
+    const frac = Number(e.target.value) / 100;
+    document.getElementById('mode-slider-val').textContent = `${e.target.value}%`;
+    if (appState.mode === 'explode') {
+      appState.explodeTarget = frac;
+    } else if (appState.mode === 'cutaway') {
+      appState.cutawayTarget = frac;
+      const cutX = 1.15 - frac * 1.48;
+      mats.setCutawayActive(true, cutX);
+    }
+  });
+
+  const themeOrder = ['dark', 'light', 'track'];
+  document.getElementById('btn-theme').addEventListener('click', () => {
+    const next = themeOrder[(themeOrder.indexOf(appState.theme) + 1) % themeOrder.length];
+    setTheme(next);
+  });
+
+  document.getElementById('btn-labels').addEventListener('click', (e) => {
+    appState.labelsEnabled = !appState.labelsEnabled;
+    e.currentTarget.classList.toggle('active', appState.labelsEnabled);
+  });
+
+  document.getElementById('btn-aero').addEventListener('click', (e) => {
+    appState.aeroEnabled = !appState.aeroEnabled;
+    internalCtrl.aeroCtrl.aeroGroup.visible = appState.aeroEnabled;
+    e.currentTarget.classList.toggle('active', appState.aeroEnabled);
+    if (appState.aeroEnabled && physics.state.targetSpeedKmh < 120) {
+      physics.state.targetSpeedKmh = 240;
+      document.getElementById('speed-slider').value = 240;
+      document.getElementById('target-speed-val').textContent = '240 km/h';
+    }
+  });
+
+  const modal = document.getElementById('physics-modal');
+  document.getElementById('btn-equations').addEventListener('click', () => modal.classList.add('visible'));
+  document.getElementById('btn-close-modal').addEventListener('click', () => modal.classList.remove('visible'));
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('visible'); });
+
+  const toggleHudHidden = () => document.body.classList.toggle('hud-hidden');
+  document.getElementById('btn-hud-hide').addEventListener('click', toggleHudHidden);
+  document.getElementById('restore-hud-btn').addEventListener('click', toggleHudHidden);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'h' || e.key === 'H') toggleHudHidden();
+  });
+
+  // Paint & Exterior Toggles
+  document.querySelectorAll('#paint-swatches .swatch').forEach((el) => {
+    el.addEventListener('click', () => setPaint(el.dataset.paint));
+  });
+
+  const bindToggle = (id, initial, onToggle) => {
+    const row = document.getElementById(id);
+    let val = initial;
+    row.addEventListener('click', () => {
+      val = !val;
+      row.classList.toggle('on', val);
+      onToggle(val);
+    });
+  };
+
+  bindToggle('tog-lights', true, (v) => { appState.lightsOn = v; bodyCtrl.setLightsOn(v); });
+  bindToggle('tog-stripe', true, (v) => { appState.stripeOn = v; bodyCtrl.setRacingStripe(v); });
+  bindToggle('tog-hood', true, (v) => { appState.carbonHood = v; bodyCtrl.setHoodCarbon(v); });
+  bindToggle('tog-wing', true, (v) => {
+    appState.gtWing = v;
+    bodyCtrl.setWingMode(v);
+    physics.state.gtWing = v;
+  });
+  bindToggle('tog-autorotate', false, (v) => {
+    appState.autoRotate = v;
+    controls.autoRotate = v;
+  });
+
+  document.querySelectorAll('#cam-presets .cam-btn').forEach((btn) => {
+    btn.addEventListener('click', () => setPreset(btn.dataset.preset));
+  });
+
+  // Right Panel Collapse
+  const configPanel = document.getElementById('config-panel');
+  const openConfigBtn = document.getElementById('btn-open-config');
+  if (window.innerWidth <= 768) {
+    configPanel.classList.add('collapsed');
+    openConfigBtn.classList.add('visible');
+  }
+  document.getElementById('btn-close-config').addEventListener('click', () => {
+    configPanel.classList.add('collapsed');
+    openConfigBtn.classList.add('visible');
+  });
+  openConfigBtn.addEventListener('click', () => {
+    configPanel.classList.remove('collapsed');
+    openConfigBtn.classList.remove('visible');
+  });
+
+  // Drive Modes & Telemetry Controls
+  document.querySelectorAll('#drive-modes .dm-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const dm = btn.dataset.dmode;
+      physics.setDriveMode(dm);
+      document.querySelectorAll('#drive-modes .dm-btn').forEach((b) => {
+        b.classList.toggle('active', b.dataset.dmode === dm);
+      });
+      const cap = physics.DRIVE_MODES[dm].topKmh;
+      const slider = document.getElementById('speed-slider');
+      slider.max = cap;
+      if (Number(slider.value) > cap) {
+        slider.value = cap;
+        document.getElementById('target-speed-val').textContent = `${cap} km/h`;
+      }
+    });
+  });
+
+  const speedSlider = document.getElementById('speed-slider');
+  speedSlider.addEventListener('input', (e) => {
+    const val = Number(e.target.value);
+    physics.state.launchActive = false;
+    physics.state.brakeTestActive = false;
+    physics.state.targetSpeedKmh = val;
+    document.getElementById('target-speed-val').textContent = `${val} km/h`;
+  });
+
+  document.getElementById('btn-launch').addEventListener('click', () => {
+    physics.startLaunch();
+    speedSlider.value = physics.state.targetSpeedKmh;
+    document.getElementById('target-speed-val').textContent = `${Math.round(physics.state.targetSpeedKmh)} km/h`;
+  });
+
+  document.getElementById('btn-brake-test').addEventListener('click', () => {
+    physics.startBrakeTest();
+    speedSlider.value = 0;
+    document.getElementById('target-speed-val').textContent = '0 km/h';
+  });
+
+  document.getElementById('btn-derate').addEventListener('click', (e) => {
+    physics.toggleDerateStress();
+    e.currentTarget.classList.toggle('running', physics.state.derateActive);
+    speedSlider.value = Math.round(physics.state.targetSpeedKmh);
+    document.getElementById('target-speed-val').textContent = `${Math.round(physics.state.targetSpeedKmh)} km/h`;
+  });
+
+  // GLB Upload & Drag-Drop
+  const glbInput = document.getElementById('glb-file-input');
+  document.getElementById('btn-upload-glb').addEventListener('click', () => glbInput.click());
+  glbInput.addEventListener('change', (e) => loadCustomGlbFile(e.target.files[0]));
+  document.getElementById('btn-reset-glb').addEventListener('click', resetToBuiltInModel);
+
+  const dropOverlay = document.getElementById('drop-overlay');
+  window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropOverlay.classList.add('visible');
+  });
+  window.addEventListener('dragleave', (e) => {
+    if (e.relatedTarget === null) dropOverlay.classList.remove('visible');
+  });
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropOverlay.classList.remove('visible');
+    const file = e.dataTransfer?.files?.[0];
+    if (file && /\.(glb|gltf)$/i.test(file.name)) {
+      loadCustomGlbFile(file);
+    }
+  });
+
+  // Resize Handler
+  window.addEventListener('resize', () => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    composer.setSize(w, h);
+  });
+
+  // DOM References for Telemetry Update
+  const elHeroPower = document.getElementById('hero-power');
+  const elHeroBar = document.getElementById('hero-bar');
+  const elHeroStatus = document.getElementById('hero-status');
+  const elValSpeed = document.getElementById('val-speed');
+  const elValRpm = document.getElementById('val-rpm');
+  const elValDown = document.getElementById('val-downforce');
+  const elValBrake = document.getElementById('val-brake-temp');
+  const elValG = document.getElementById('val-g');
+  const elValKw = document.getElementById('val-kw');
+  const elFps = document.getElementById('fps-badge');
+  const btnLaunch = document.getElementById('btn-launch');
+  const btnBrake = document.getElementById('btn-brake-test');
+
+  // Animation Loop
+  let lastTime = performance.now();
+  let fpsCount = 0;
+  let fpsTimer = 0;
+  let elapsed = 0;
+
+  function animate(now) {
+    requestAnimationFrame(animate);
+    const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
+    lastTime = now;
+    elapsed += dt;
+
+    // FPS counter
+    fpsCount++;
+    fpsTimer += dt;
+    if (fpsTimer >= 0.5) {
+      elFps.textContent = `${Math.round(fpsCount / fpsTimer)} fps`;
+      fpsCount = 0;
+      fpsTimer = 0;
+    }
+
+    // Camera preset smooth ease-out tween
+    if (camTween) {
+      camTween.t += dt / camTween.dur;
+      const u = Math.min(1, camTween.t);
+      const easeU = 1 - Math.pow(1 - u, 3);
+      camera.position.lerpVectors(camTween.startPos, camTween.endPos, easeU);
+      controls.target.lerpVectors(camTween.startTarget, camTween.endTarget, easeU);
+      if (u >= 1) camTween = null;
+    }
+
+    controls.update();
+
+    // Physics Step
+    const st = physics.step(dt);
+
+    // Kinematic wheel rotation, motor rotor spin & suspension pitch squat/dive
+    internalCtrl.stepKinematics(dt, st.speedMps);
+    bodyCtrl.updateActiveSpoiler(st.speedKmh);
+    carPitchGroup.rotation.x = st.pitchRad;
+
+    // Blackbody thermal glow on carbon-ceramic brake rotors
+    const rotorKelvin = st.brakeTempC + 273.15;
+    mats.brakeRotor.emissive.copy(blackbodyColor(rotorKelvin));
+
+    // Smooth Explode animation
+    appState.explodeCurrent += (appState.explodeTarget - appState.explodeCurrent) * (1 - Math.exp(-dt * 8));
+    if (appState.explodeCurrent > 0.001 || appState.explodeTarget > 0) {
+      const allExplode = [...bodyCtrl.explodeGroups, ...internalCtrl.explodeGroups];
+      for (const g of allExplode) {
+        if (g.userData.basePos && g.userData.explodeOffset) {
+          g.position.copy(g.userData.basePos).addScaledVector(g.userData.explodeOffset, appState.explodeCurrent);
+        }
+      }
+    }
+
+    // Update 3D aero streamlines
+    internalCtrl.aeroCtrl.update(dt, st.speedKmh, elapsed);
+
+    // Update HUD telemetry
+    elHeroPower.textContent = Math.round(st.powerPs).toLocaleString('en-US');
+    elHeroBar.style.width = `${Math.min(100, (st.powerPs / 1548) * 100)}%`;
+    elHeroBar.classList.toggle('warning', st.isWarning);
+    elHeroStatus.textContent = st.statusText;
+    elHeroStatus.classList.toggle('warning', st.isWarning);
+
+    elValSpeed.textContent = `${Math.round(st.speedKmh)} km/h`;
+    elValRpm.textContent = `${Math.round(st.v8sRpm).toLocaleString('en-US')} rpm`;
+    elValDown.textContent = `${Math.round(st.downforceKgf)} kgf`;
+    elValBrake.textContent = `${Math.round(st.brakeTempC)} °C`;
+    elValG.textContent = `${st.accelG >= 0 ? '+' : ''}${st.accelG.toFixed(2)} g`;
+    elValKw.textContent = `${Math.round(st.powerKw)} kW`;
+
+    btnLaunch.classList.toggle('running', st.launchActive);
+    btnBrake.classList.toggle('running', st.brakeTestActive);
+
+    updateHotspots(st);
+    composer.render();
+  }
+
+  requestAnimationFrame(animate);
+
+  // Expose automation/debug hook for deterministic verification
+  window.__su7 = {
+    setMode,
+    setPaint,
+    setTheme,
+    setPreset,
+    setExplode: (frac) => {
+      setMode('explode');
+      appState.explodeTarget = frac;
+      appState.explodeCurrent = frac;
+      document.getElementById('mode-slider').value = Math.round(frac * 100);
+      document.getElementById('mode-slider-val').textContent = `${Math.round(frac * 100)}%`;
+    },
+    setCutaway: (frac) => {
+      setMode('cutaway');
+      appState.cutawayTarget = frac;
+      const cutX = 1.15 - frac * 1.48;
+      mats.setCutawayActive(true, cutX);
+      document.getElementById('mode-slider').value = Math.round(frac * 100);
+      document.getElementById('mode-slider-val').textContent = `${Math.round(frac * 100)}%`;
+    },
+    setTargetSpeed: (kmh) => {
+      physics.state.launchActive = false;
+      physics.state.brakeTestActive = false;
+      physics.state.targetSpeedKmh = kmh;
+      physics.state.speedKmh = kmh;
+      physics.state.speedMps = kmh / 3.6;
+      speedSlider.value = kmh;
+      document.getElementById('target-speed-val').textContent = `${kmh} km/h`;
+    },
+    triggerBrakeTest: () => {
+      physics.startBrakeTest();
+    },
+    triggerLaunch: () => {
+      physics.startLaunch();
+    },
+    toggleAero: (on) => {
+      appState.aeroEnabled = on;
+      internalCtrl.aeroCtrl.aeroGroup.visible = on;
+      document.getElementById('btn-aero').classList.toggle('active', on);
+    },
+    toggleLabels: (on) => {
+      appState.labelsEnabled = on;
+      document.getElementById('btn-labels').classList.toggle('active', on);
+    },
+    getStats: () => ({
+      state: { ...physics.state },
+      appState: { ...appState },
+      renderInfo: {
+        calls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+      },
+    }),
+  };
+}
+
+initSU7Showroom();
+
+</script>
+</body>
+</html>

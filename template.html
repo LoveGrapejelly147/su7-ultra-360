@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Xiaomi SU7 Ultra · 360° 3D 展厅与工程透视实验室</title>
+<style>
+  :root {
+    --accent: #EBBF00;
+    --accent-dim: rgba(235, 191, 0, 0.22);
+    --danger: #FF4D4F;
+    --bg: #0B0D12;
+    --panel: rgba(14, 17, 24, 0.72);
+    --panel-strong: rgba(16, 20, 28, 0.88);
+    --border: rgba(255, 255, 255, 0.11);
+    --border-soft: rgba(255, 255, 255, 0.06);
+    --text: #F4F6FA;
+    --text-muted: rgba(244, 246, 250, 0.62);
+    --text-dim: rgba(244, 246, 250, 0.42);
+    --pill-bg: rgba(255, 255, 255, 0.06);
+    --pill-hover: rgba(255, 255, 255, 0.12);
+    --shadow: 0 18px 48px rgba(0, 0, 0, 0.48);
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  body.theme-light {
+    --bg: #EAECE8;
+    --panel: rgba(250, 251, 249, 0.78);
+    --panel-strong: rgba(252, 253, 251, 0.94);
+    --border: rgba(18, 22, 28, 0.12);
+    --border-soft: rgba(18, 22, 28, 0.06);
+    --text: #14171C;
+    --text-muted: rgba(20, 23, 28, 0.62);
+    --text-dim: rgba(20, 23, 28, 0.44);
+    --pill-bg: rgba(18, 22, 28, 0.06);
+    --pill-hover: rgba(18, 22, 28, 0.11);
+    --shadow: 0 14px 36px rgba(20, 24, 30, 0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  #canvas-wrap {
+    position: fixed; inset: 0; z-index: 0;
+  }
+  #canvas-wrap canvas {
+    display: block; width: 100%; height: 100%; outline: none;
+    cursor: grab; touch-action: none;
+  }
+  #canvas-wrap canvas:active { cursor: grabbing; }
+
+  /* HUD Layout */
+  #hud {
+    position: fixed; inset: 0; z-index: 10; pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+  body.hud-hidden #hud { opacity: 0; pointer-events: none; }
+  body.hud-hidden #hud * { pointer-events: none !important; }
+
+  .glass {
+    background: var(--panel);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  /* Top Bar */
+  .topbar {
+    position: absolute; top: 14px; left: 16px; right: 16px;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 10px; flex-wrap: nowrap; pointer-events: none;
+  }
+  .topbar > * { pointer-events: auto; }
+
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 12px; border-radius: 13px; flex-shrink: 0;
+  }
+  .brand-mark {
+    width: 24px; height: 24px; border-radius: 7px;
+    background: var(--accent); color: #111317;
+    font-weight: 800; font-size: 12px; letter-spacing: -0.02em;
+    display: grid; place-items: center;
+  }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+  .brand-title { font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em; }
+  .brand-sub { font-size: 10px; color: var(--text-muted); letter-spacing: 0.02em; }
+
+  .mode-stack {
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+  }
+  .segmented {
+    display: flex; align-items: center; gap: 3px;
+    padding: 4px; border-radius: 13px;
+  }
+  .seg-btn {
+    border: 0; background: transparent; color: var(--text-muted);
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    padding: 6px 11px; border-radius: 9px; cursor: pointer;
+    transition: all 0.18s ease; white-space: nowrap;
+  }
+  .seg-btn:hover { color: var(--text); background: var(--pill-bg); }
+  .seg-btn.active {
+    background: var(--accent); color: #101216; font-weight: 700;
+    box-shadow: 0 2px 10px rgba(235, 191, 0, 0.35);
+  }
+
+  .inline-slider {
+    display: none; align-items: center; gap: 10px;
+    padding: 6px 13px; border-radius: 11px; font-size: 11.5px;
+  }
+  .inline-slider.visible { display: flex; }
+  .inline-slider label { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+  .inline-slider input[type=range] { width: 140px; accent-color: var(--accent); cursor: pointer; }
+  .inline-slider .val { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-weight: 700; min-width: 36px; text-align: right; }
+
+  .util-bar {
+    display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 13px; flex-shrink: 0;
+  }
+  .util-btn {
+    border: 1px solid transparent; background: var(--pill-bg); color: var(--text);
+    font-family: inherit; font-size: 11.5px; font-weight: 600;
+    padding: 6px 9px; border-radius: 9px; cursor: pointer;
+    transition: all 0.16s ease; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .util-btn:hover { background: var(--pill-hover); }
+  .util-btn.active {
+    background: var(--accent-dim); border-color: var(--accent); color: var(--text);
+  }
+  body.theme-dark .util-btn.active { color: #FFE36E; }
+
+  /* Bottom-Left Telemetry & Drive Console */
+  .telemetry-panel {
+    position: absolute; left: 16px; bottom: 16px; width: 304px;
+    padding: 13px 15px; border-radius: 16px; pointer-events: auto;
+    display: flex; flex-direction: column; gap: 9px;
+  }
+  .hero-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+  .hero-value-wrap { display: flex; align-items: baseline; gap: 5px; }
+  .hero-value {
+    font-size: 36px; font-weight: 800; line-height: 0.95;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+  }
+  .hero-unit { font-size: 13px; font-weight: 700; color: var(--accent); font-style: italic; }
+  .status-pill {
+    font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px;
+    background: var(--pill-bg); border: 1px solid var(--border);
+    color: var(--text-muted); white-space: nowrap;
+  }
+  .status-pill.warning {
+    background: rgba(255, 77, 79, 0.18); border-color: rgba(255, 77, 79, 0.55); color: #FF7875;
+  }
+  body.theme-light .status-pill.warning { color: #CF1322; }
+
+  .hero-bar-track {
+    width: 100%; height: 4px; border-radius: 999px;
+    background: var(--border-soft); overflow: hidden;
+  }
+  .hero-bar-fill {
+    height: 100%; width: 0%; border-radius: 999px;
+    background: linear-gradient(90deg, #EBBF00, #FFF099);
+    transition: width 0.08s linear, background 0.2s ease;
+  }
+  .hero-bar-fill.warning { background: linear-gradient(90deg, #FF4D4F, #FF9C6E); }
+
+  .sub-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    padding-top: 1px;
+  }
+  .metric {
+    background: var(--pill-bg); border: 1px solid var(--border-soft);
+    border-radius: 9px; padding: 5px 7px;
+  }
+  .metric-k { font-size: 9.5px; color: var(--text-muted); letter-spacing: 0.02em; }
+  .metric-v {
+    font-size: 12px; font-weight: 700; margin-top: 1px;
+    font-variant-numeric: tabular-nums; font-family: var(--font-mono);
+  }
+
+  .drive-modes {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+  }
+  .dm-btn {
+    border: 1px solid var(--border-soft); background: var(--pill-bg); color: var(--text-muted);
+    font-family: inherit; font-size: 11px; font-weight: 600;
+    padding: 5px 3px; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;
+  }
+  .dm-btn:hover { color: var(--text); background: var(--pill-hover); }
+  .dm-btn.active {
+    background: var(--accent); color: #111317; border-color: var(--accent); font-weight: 700;
+  }
+
+  .slider-block { display: flex; flex-direction: column; gap: 4px; }
+  .slider-head {
+    display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);
+  }
+  .slider-head strong { color: var(--text); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .slider-block input[type=range] {
+    width: 100%; accent-color: var(--accent); cursor: pointer; height: 4px;
+  }
+
+  .action-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .act-btn {
+    border: 1px solid var(--border); background: var(--pill-bg); color: var(--text);
+    font-family: inherit; font-size: 11px; font-weight: 700;
+    padding: 7px 5px; border-radius: 9px; cursor: pointer; transition: all 0.16s ease;
+  }
+  .act-btn:hover { background: var(--pill-hover); border-color: var(--accent); }
+  .act-btn.running { background: var(--accent); color: #111317; border-color: var(--accent); }
+  .act-btn.danger.running { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+  /* Right Configurator Panel */
+  .config-panel {
+    position: absolute; right: 16px; top: 66px; width: 248px;
+    max-height: calc(100vh - 86px); overflow-y: auto;
+    padding: 12px 13px; border-radius: 16px; pointer-events: auto;
+    display: flex; flex-direction: column; gap: 10px;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .config-panel::-webkit-scrollbar { width: 4px; }
+  .config-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .config-panel.collapsed {
+    transform: translateX(calc(100% + 28px)); opacity: 0; pointer-events: none;
+  }
+
+  .panel-collapse-toggle {
+    position: absolute; right: 20px; top: 76px; z-index: 12;
+    pointer-events: auto; display: none;
+    padding: 8px 12px; border-radius: 12px; font-size: 12px; font-weight: 700;
+    cursor: pointer; color: var(--text);
+  }
+  .panel-collapse-toggle.visible { display: flex; align-items: center; gap: 6px; }
+
+  .sec-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; font-weight: 700; color: var(--text-muted);
+    letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px;
+  }
+  .sec-close {
+    border: 0; background: transparent; color: var(--text-muted);
+    cursor: pointer; font-size: 13px; padding: 2px 5px; border-radius: 6px;
+  }
+  .sec-close:hover { background: var(--pill-bg); color: var(--text); }
+
+  .paint-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+  }
+  .swatch {
+    position: relative; aspect-ratio: 1; border-radius: 11px; cursor: pointer;
+    border: 2px solid rgba(255, 255, 255, 0.16);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .swatch:hover { transform: translateY(-2px); }
+  .swatch.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(235, 191, 0, 0.38);
+  }
+  .paint-name {
+    font-size: 12px; font-weight: 600; color: var(--text);
+  }
+
+  .toggle-list { display: flex; flex-direction: column; gap: 6px; }
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 10px; border-radius: 10px;
+    background: var(--pill-bg); border: 1px solid var(--border-soft);
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .toggle-row:hover { background: var(--pill-hover); }
+  .switch {
+    width: 34px; height: 19px; border-radius: 999px;
+    background: rgba(128, 134, 145, 0.35); position: relative; transition: background 0.18s ease;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 2.5px; left: 2.5px;
+    width: 14px; height: 14px; border-radius: 50%; background: #fff;
+    transition: transform 0.18s ease;
+  }
+  .toggle-row.on .switch { background: var(--accent); }
+  .toggle-row.on .switch::after { transform: translateX(15px); background: #101216; }
+
+  .cam-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
+  }
+  .cam-btn {
+    border: 1px solid var(--border-soft); background: var(--pill-bg); color: var(--text-muted);
+    font-family: inherit; font-size: 11.5px; font-weight: 600;
+    padding: 7px 8px; border-radius: 9px; cursor: pointer; text-align: left;
+    transition: all 0.15s ease;
+  }
+  .cam-btn:hover { color: var(--text); background: var(--pill-hover); }
+  .cam-btn.active {
+    background: var(--accent-dim); border-color: var(--accent); color: var(--text);
+  }
+  .cam-btn.full { grid-column: span 2; }
+
+  .glb-box {
+    display: flex; flex-direction: column; gap: 6px;
+    padding-top: 4px; border-top: 1px solid var(--border-soft);
+  }
+  .glb-btn {
+    border: 1px dashed var(--border); background: var(--pill-bg); color: var(--text);
+    font-family: inherit; font-size: 11.5px; font-weight: 600;
+    padding: 9px 10px; border-radius: 10px; cursor: pointer; text-align: center;
+    transition: all 0.16s ease;
+  }
+  .glb-btn:hover { border-color: var(--accent); background: var(--pill-hover); }
+  .glb-reset { display: none; border-style: solid; color: #FF7875; }
+  .glb-reset.visible { display: block; }
+
+  /* Bottom-Center Hint */
+  .bottom-hint {
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+    padding: 6px 14px; border-radius: 999px; font-size: 11px; color: var(--text-muted);
+    display: flex; align-items: center; gap: 10px; pointer-events: none;
+    white-space: nowrap;
+  }
+  .bottom-hint b { color: var(--text); font-weight: 600; }
+
+  /* Hotspot 3D Labels */
+  #hotspot-layer {
+    position: fixed; inset: 0; z-index: 8; pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  body.hud-hidden #hotspot-layer { opacity: 0; }
+  .hotspot {
+    position: absolute; transform: translate(-50%, -50%);
+    pointer-events: auto; cursor: pointer;
+    display: flex; align-items: center; gap: 7px;
+    padding: 5px 10px 5px 6px; border-radius: 999px;
+    background: var(--panel-strong); border: 1px solid var(--border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(12px);
+    transition: opacity 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+  }
+  .hotspot:hover { border-color: var(--accent); transform: translate(-50%, -52%) scale(1.03); }
+  .hotspot-dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 3px rgba(235, 191, 0, 0.28); flex-shrink: 0;
+  }
+  .hotspot-title { font-size: 11px; font-weight: 700; color: var(--text); white-space: nowrap; }
+  .hotspot-val {
+    font-size: 10.5px; font-family: var(--font-mono); color: var(--accent);
+    font-weight: 700; white-space: nowrap;
+  }
+  body.theme-light .hotspot-val { color: #9C7800; }
+
+  /* Drag Drop Overlay */
+  #drop-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(11, 13, 18, 0.82); backdrop-filter: blur(10px);
+    display: none; place-items: center; pointer-events: none;
+  }
+  #drop-overlay.visible { display: grid; }
+  .drop-card {
+    border: 2px dashed var(--accent); border-radius: 24px;
+    padding: 44px 56px; text-align: center; background: rgba(20, 24, 34, 0.9);
+    color: #F4F6FA;
+  }
+  .drop-card h2 { font-size: 20px; margin-bottom: 8px; }
+  .drop-card p { font-size: 13px; color: rgba(244, 246, 250, 0.68); }
+
+  /* Physics Modal */
+  #physics-modal {
+    position: fixed; inset: 0; z-index: 40;
+    background: rgba(8, 10, 14, 0.68); backdrop-filter: blur(8px);
+    display: none; place-items: center; padding: 20px;
+  }
+  #physics-modal.visible { display: grid; }
+  .modal-card {
+    width: min(640px, 100%); max-height: 84vh; overflow-y: auto;
+    border-radius: 20px; padding: 22px 24px;
+    background: var(--panel-strong); border: 1px solid var(--border);
+    box-shadow: var(--shadow); color: var(--text);
+  }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft);
+  }
+  .modal-head h3 { font-size: 16px; font-weight: 700; }
+  .modal-close {
+    border: 0; background: var(--pill-bg); color: var(--text);
+    width: 30px; height: 30px; border-radius: 9px; cursor: pointer; font-size: 15px;
+  }
+  .eq-list { display: flex; flex-direction: column; gap: 10px; }
+  .eq-item {
+    padding: 11px 13px; border-radius: 12px;
+    background: var(--pill-bg); border: 1px solid var(--border-soft);
+  }
+  .eq-item h4 { font-size: 12.5px; color: var(--accent); margin-bottom: 4px; }
+  body.theme-light .eq-item h4 { color: #8A6A00; }
+  .eq-item code {
+    display: block; font-family: var(--font-mono); font-size: 11.5px;
+    margin-bottom: 4px; color: var(--text);
+  }
+  .eq-item p { font-size: 12px; color: var(--text-muted); line-height: 1.48; }
+
+  /* Pure mode floating restore button */
+  #restore-hud-btn {
+    position: fixed; top: 16px; right: 20px; z-index: 20;
+    display: none; padding: 8px 14px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; cursor: pointer; color: var(--text);
+  }
+  body.hud-hidden #restore-hud-btn { display: inline-flex; }
+
+  @media (max-width: 1180px) {
+    .topbar { flex-wrap: wrap; }
+  }
+  @media (max-width: 960px) {
+    .telemetry-panel { width: 280px; left: 12px; bottom: 12px; padding: 11px 13px; }
+    .hero-value { font-size: 30px; }
+    .config-panel { width: 226px; right: 12px; top: 108px; }
+    .bottom-hint { display: none; }
+  }
+  @media (max-width: 768px) {
+    .topbar { top: 10px; left: 10px; right: 10px; gap: 6px; }
+    .brand { padding: 6px 10px; }
+    .brand-sub { display: none; }
+    .segmented { overflow-x: auto; max-width: calc(100vw - 20px); }
+    .seg-btn { padding: 5px 9px; font-size: 11px; }
+    .util-bar { overflow-x: auto; max-width: calc(100vw - 20px); }
+    .util-btn { padding: 5px 8px; font-size: 11px; }
+    .telemetry-panel {
+      left: 10px; right: 10px; bottom: 10px; width: auto;
+      padding: 10px 12px; gap: 7px;
+    }
+    .hero-value { font-size: 26px; }
+    .sub-grid { gap: 5px; }
+    .metric { padding: 4px 6px; }
+    .config-panel, .panel-collapse-toggle { top: 104px; right: 10px; }
+    .config-panel { width: 236px; max-height: calc(100vh - 300px); }
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body class="theme-dark">
+<div id="canvas-wrap"></div>
+<div id="hotspot-layer"></div>
+
+<button id="restore-hud-btn" class="glass">显示界面 (H)</button>
+
+<div id="hud">
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="brand glass">
+      <div class="brand-mark">MI</div>
+      <div class="brand-text">
+        <span class="brand-title">XIAOMI EV · SU7 ULTRA</span>
+        <span class="brand-sub">1,548 PS 三电机四驱 · 360° 展厅与工程实验室</span>
+      </div>
+    </div>
+
+    <div class="mode-stack">
+      <div class="segmented glass" id="mode-tabs">
+        <button class="seg-btn active" data-mode="showroom">展厅 Showroom</button>
+        <button class="seg-btn" data-mode="xray">透视 X-Ray</button>
+        <button class="seg-btn" data-mode="explode">拆解 Explode</button>
+        <button class="seg-btn" data-mode="cutaway">剖视 Cutaway</button>
+      </div>
+      <div class="inline-slider glass" id="mode-slider-wrap">
+        <label id="mode-slider-label">拆解程度</label>
+        <input id="mode-slider" type="range" min="0" max="100" value="85" />
+        <span class="val" id="mode-slider-val">85%</span>
+      </div>
+    </div>
+
+    <div class="util-bar glass">
+      <button class="util-btn" id="btn-theme" title="切换影棚环境">环境：暗调展厅</button>
+      <button class="util-btn" id="btn-labels">3D 标注</button>
+      <button class="util-btn" id="btn-aero">气动流线</button>
+      <button class="util-btn" id="btn-equations">物理方程</button>
+      <button class="util-btn" id="btn-hud-hide" title="纯净浏览模式 (快捷键 H)">纯净 H</button>
+    </div>
+  </div>
+
+  <!-- Bottom-Left Telemetry & Simulation Console -->
+  <div class="telemetry-panel glass">
+    <div class="hero-row">
+      <div class="hero-value-wrap">
+        <span class="hero-value" id="hero-power">0</span>
+        <span class="hero-unit">PS</span>
+      </div>
+      <span class="status-pill" id="hero-status">展厅待机 · 897V 就绪</span>
+    </div>
+    <div class="hero-bar-track">
+      <div class="hero-bar-fill" id="hero-bar"></div>
+    </div>
+
+    <div class="sub-grid">
+      <div class="metric">
+        <div class="metric-k">实时车速</div>
+        <div class="metric-v" id="val-speed">0 km/h</div>
+      </div>
+      <div class="metric">
+        <div class="metric-k">V8s 转速</div>
+        <div class="metric-v" id="val-rpm">0 rpm</div>
+      </div>
+      <div class="metric">
+        <div class="metric-k">气动下压力</div>
+        <div class="metric-v" id="val-downforce">0 kgf</div>
+      </div>
+      <div class="metric">
+        <div class="metric-k">碳陶盘温</div>
+        <div class="metric-v" id="val-brake-temp">42 °C</div>
+      </div>
+      <div class="metric">
+        <div class="metric-k">瞬时 G 值</div>
+        <div class="metric-v" id="val-g">0.00 g</div>
+      </div>
+      <div class="metric">
+        <div class="metric-k">电池放电</div>
+        <div class="metric-v" id="val-kw">0 kW</div>
+      </div>
+    </div>
+
+    <div class="drive-modes" id="drive-modes">
+      <button class="dm-btn" data-dmode="novice">新手 900</button>
+      <button class="dm-btn" data-dmode="sport">运动 1150</button>
+      <button class="dm-btn" data-dmode="track">赛道 1400</button>
+      <button class="dm-btn active" data-dmode="qualifying">排位 1548</button>
+    </div>
+
+    <div class="slider-block">
+      <div class="slider-head">
+        <span>巡航目标车速 / 油门负载</span>
+        <strong id="target-speed-val">0 km/h</strong>
+      </div>
+      <input id="speed-slider" type="range" min="0" max="350" value="0" step="1" />
+    </div>
+
+    <div class="action-row">
+      <button class="act-btn" id="btn-launch">弹射加速</button>
+      <button class="act-btn danger" id="btn-brake-test">350→0 急刹</button>
+      <button class="act-btn danger" id="btn-derate">热衰极限</button>
+    </div>
+  </div>
+
+  <!-- Right Configurator Panel -->
+  <button class="panel-collapse-toggle glass" id="btn-open-config">⚙ 外观与视角</button>
+  <div class="config-panel glass" id="config-panel">
+    <div>
+      <div class="sec-head">
+        <span>官方车漆 · <strong id="paint-label" style="color:var(--text)">闪电黄</strong></span>
+        <button class="sec-close" id="btn-close-config" title="收起面板">✕</button>
+      </div>
+      <div class="paint-grid" id="paint-swatches">
+        <button class="swatch active" data-paint="yellow" title="闪电黄" style="background:linear-gradient(135deg,#FFE24A,#C79B00)"></button>
+        <button class="swatch" data-paint="silver" title="太空银" style="background:linear-gradient(135deg,#DFE6EC,#8D98A4)"></button>
+        <button class="swatch" data-paint="white" title="珍珠白" style="background:linear-gradient(135deg,#FFFFFF,#CFD5D4)"></button>
+        <button class="swatch" data-paint="black" title="曜石黑" style="background:linear-gradient(135deg,#353A44,#0A0C10)"></button>
+        <button class="swatch" data-paint="green" title="鹦鹉绿" style="background:linear-gradient(135deg,#479C73,#1B4B34)"></button>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-head"><span>外观与灯光控制</span></div>
+      <div class="toggle-list">
+        <div class="toggle-row on" id="tog-lights"><span>水滴大灯 & 光环尾灯</span><div class="switch"></div></div>
+        <div class="toggle-row on" id="tog-stripe"><span>Ultra 赛道拉花</span><div class="switch"></div></div>
+        <div class="toggle-row on" id="tog-hood"><span>碳纤维双风道机盖</span><div class="switch"></div></div>
+        <div class="toggle-row on" id="tog-wing"><span>1560mm 固定 GT 尾翼</span><div class="switch"></div></div>
+        <div class="toggle-row" id="tog-autorotate"><span>360° 自动缓速环绕</span><div class="switch"></div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-head"><span>360° 精选视角</span></div>
+      <div class="cam-grid" id="cam-presets">
+        <button class="cam-btn active" data-preset="hero">经典 3/4 视角</button>
+        <button class="cam-btn" data-preset="front">低趴前脸</button>
+        <button class="cam-btn" data-preset="side">优雅车侧</button>
+        <button class="cam-btn" data-preset="rear">尾翼扩散器</button>
+        <button class="cam-btn" data-preset="top">气动俯视</button>
+        <button class="cam-btn" data-preset="wheel">碳陶卡钳</button>
+        <button class="cam-btn full" data-preset="powertrain">三电机 & 麒麟电池底盘视角</button>
+      </div>
+    </div>
+
+    <div class="glb-box">
+      <div class="sec-head" style="margin-bottom:2px"><span>自定义真车模型替换</span></div>
+      <input type="file" id="glb-file-input" accept=".glb,.gltf" hidden />
+      <button class="glb-btn" id="btn-upload-glb">拖入或选择 .glb / .gltf 模型</button>
+      <button class="glb-btn glb-reset" id="btn-reset-glb">恢复内置 SU7 Ultra 工程模型</button>
+    </div>
+  </div>
+
+  <!-- Bottom Interaction Hint -->
+  <div class="bottom-hint glass">
+    <span><b>左键拖拽</b> 360° 环绕</span>
+    <span>·</span>
+    <span><b>右键</b> 平移</span>
+    <span>·</span>
+    <span><b>滚轮</b> 缩放细节</span>
+    <span>·</span>
+    <span id="fps-badge">60 fps</span>
+  </div>
+</div>
+
+<!-- Drag & Drop Overlay -->
+<div id="drop-overlay">
+  <div class="drop-card">
+    <h2>释放以加载 3D 车辆模型 (.glb / .gltf)</h2>
+    <p>将自动匹配 5.115 m 车长比例并贴合展厅地面</p>
+  </div>
+</div>
+
+<!-- Physics Equations Modal -->
+<div id="physics-modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>SU7 Ultra 物理求解与工程参数</h3>
+      <button class="modal-close" id="btn-close-modal">✕</button>
+    </div>
+    <div class="eq-list">
+      <div class="eq-item">
+        <h4>1. 三电机联合动力与转速耦合</h4>
+        <code>P_max = 1,138 kW (1,548 PS) · V8s × 2 + V6s × 1 · M_peak = 1,770 N·m</code>
+        <p>双后置 HyperEngine V8s（单台最高 27,200 rpm，减速比 10.62）+ 前置 V6s（21,000 rpm，减速比 8.14），由轮端速度 ω = v / 0.360 m 实时反算真实电机转速。注：为便于肉眼观察旋转，内部转子视觉转速按 1:60 缩放显示，仪表数值为 100% 真实物理值。</p>
+      </div>
+      <div class="eq-item">
+        <h4>2. 空气动力学下压力与风阻</h4>
+        <code>F_down = 0.5 · ρ · C_LA · A · v²  (ρ = 1.225 kg/m³, A = 2.38 m²)</code>
+        <p>装配 1,560 mm 碳纤维固定式 GT 大尾翼与 6 鳍扩散器时（C_LA ≈ 0.483，C_d ≈ 0.255），在 350 km/h 极速下产生 285 kgf 有效下压力；切换电动尾翼时风阻降至 C_d ≈ 0.215。</p>
+      </div>
+      <div class="eq-item">
+        <h4>3. 纵向动力学与弹射时间</h4>
+        <code>a = (min(F_traction, P / v) - F_drag - F_roll) / m  (m = 2,360 kg)</code>
+        <p>点击「弹射加速」将在四驱扭矩矢量牵引力模型下从静止全力加速至 350 km/h，并实时记录模拟 0–100 km/h 与 0–200 km/h 成绩。</p>
+      </div>
+      <div class="eq-item">
+        <h4>4. 430 mm 碳陶制动热力学与黑体辐射</h4>
+        <code>ΔE_kin = 0.5 · m · v² → ΔT_disc = Q_absorbed / (4 · m_disc · c_p)</code>
+        <p>「350→0 急刹」将约 11.1 MJ 动能瞬时转化为前 430 mm / 后 410 mm 碳陶盘热能，盘温急剧攀升至 ~1,080 °C，并通过黑体辐射色温映射实时点亮制动盘炽红热辉光。</p>
+      </div>
+      <div class="eq-item">
+        <h4>5. 高负荷热衰退保护机制</h4>
+        <code>P_limit = P_mode · clamp(1 - 0.32 · max(0, (T_bat - 52)/12), 0.65, 1)</code>
+        <p>激活「热衰极限」后，CATL 麒麟 II 高功率电池包与定子绕组持续升温，求解器触发线性功率保护降额并切入警示状态。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* __INJECT_MODULES__ */
+</script>
+</body>
+</html>
