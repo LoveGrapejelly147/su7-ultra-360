@@ -27,39 +27,39 @@ function buildWheelCorner({ isFront, side, mats }) {
   cornerGroup.userData.basePos = cornerGroup.position.clone();
   cornerGroup.userData.explodeOffset = new THREE.Vector3(side * 0.62, 0, isFront ? 0.16 : -0.16);
 
-  // 1. Stationary Hub Knuckle & Sculpted Yellow Akebono Monoblock Caliper
+  // 1. Stationary Hub Knuckle & Sculpted Yellow Akebono Monoblock Caliper (mounted rearward on both axles, photo_14)
   const stationaryGroup = new THREE.Group();
-  const caliperAngle = isFront ? Math.PI * 0.82 : Math.PI * 0.18; // 10 o'clock front, 2 o'clock rear
-  const calR = rotorR - 0.025;
+  const caliperAngle = Math.PI * 0.96; // Rearward side (-Z) on both front & rear discs
+  const calR = rotorR - 0.024;
 
   const caliperGroup = new THREE.Group();
   caliperGroup.position.set(
-    -side * 0.028,
+    -side * 0.026,
     Math.sin(caliperAngle) * calR,
     Math.cos(caliperAngle) * calR
   );
   caliperGroup.rotation.x = -(caliperAngle - Math.PI / 2);
 
-  const calLen = isFront ? 0.25 : 0.20;
+  const calLen = isFront ? 0.285 : 0.225;
   const calBody = new THREE.Mesh(
-    new RoundedBoxGeometry(0.11, 0.09, calLen, 3, 0.022),
+    new RoundedBoxGeometry(0.115, 0.095, calLen, 3, 0.028),
     mats.caliperYellow
   );
   calBody.castShadow = true;
 
-  // Dark Akebono badge plate on outer face of caliper
+  // Dark Xiaomi / Akebono script bar on outer face of yellow caliper
   const calBadge = new THREE.Mesh(
-    new RoundedBoxGeometry(0.012, 0.036, calLen * 0.56, 1, 0.004),
+    new RoundedBoxGeometry(0.010, 0.022, calLen * 0.52, 1, 0.004),
     mats.glossBlack
   );
-  calBadge.position.set(side * 0.052, 0, 0);
+  calBadge.position.set(side * 0.056, 0, 0);
 
   // Piston bridge ribs
   const calBridge = new THREE.Mesh(
-    new RoundedBoxGeometry(0.118, 0.022, calLen * 0.72, 2, 0.005),
+    new RoundedBoxGeometry(0.120, 0.022, calLen * 0.72, 2, 0.005),
     mats.darkCastAlu
   );
-  calBridge.position.set(0, 0.04, 0);
+  calBridge.position.set(0, 0.042, 0);
 
   caliperGroup.add(calBody, calBadge, calBridge);
 
@@ -114,42 +114,54 @@ function buildWheelCorner({ isFront, side, mats }) {
   barrel.rotation.z = Math.PI / 2;
   spinGroup.add(barrel);
 
-  // Machined bright outer rim flange lip
+  // Gloss-black outer rim flange + signature Lightning Yellow rim pinstripe ring (photo_01, photo_14)
   const rimLip = new THREE.Mesh(
-    new THREE.TorusGeometry(rRim - 0.004, 0.009, 10, 48),
-    mats.machinedAlloy
+    new THREE.TorusGeometry(rRim - 0.002, 0.009, 10, 56),
+    mats.forgedWheel
   );
   rimLip.rotation.y = Math.PI / 2;
   rimLip.position.x = side * (hw * 0.82);
   spinGroup.add(rimLip);
 
-  // 10-Spoke (5 twin U-shaped split spokes) 21" Forged Alloy Face
-  const spokeOuterX = side * (hw * 0.72);
+  const yellowRimRing = new THREE.Mesh(
+    new THREE.TorusGeometry(rRim - 0.006, 0.0042, 10, 64),
+    mats.wheelRimYellow
+  );
+  yellowRimRing.rotation.y = Math.PI / 2;
+  yellowRimRing.position.x = side * (hw * 0.855);
+  spinGroup.add(yellowRimRing);
+
+  // 5 Sculpted Curved Forged U-Spoke / Tuning-Fork Pairs in Gloss Black (photo_14)
+  const outerX = side * (hw * 0.72);
+  const midX = side * (hw * 0.56);
   const hubFaceX = side * (hw * 0.44);
   for (let i = 0; i < 5; i++) {
     const baseAngle = (i / 5) * Math.PI * 2;
-    for (const delta of [-0.15, 0.15]) {
-      const a = baseAngle + delta;
-      const spoke = new THREE.Mesh(
-        new RoundedBoxGeometry(0.022, 0.175, 0.024, 2, 0.005),
-        mats.forgedWheel
-      );
-      const rMid = 0.176;
-      spoke.position.set(
-        (spokeOuterX + hubFaceX) * 0.5 + side * 0.01,
-        Math.sin(a) * rMid,
-        Math.cos(a) * rMid
-      );
-      spoke.rotation.x = -(a - Math.PI / 2);
-      spoke.rotation.z = side * -0.18; // Concave forged dishing!
-      spoke.castShadow = true;
-      spinGroup.add(spoke);
-    }
+    const aL = baseAngle - 0.24;
+    const aR = baseAngle + 0.24;
+    const aRootL = baseAngle - 0.065;
+    const aRootR = baseAngle + 0.065;
+
+    const uCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(outerX, Math.sin(aL) * (rRim - 0.012), Math.cos(aL) * (rRim - 0.012)),
+      new THREE.Vector3(midX, Math.sin(baseAngle - 0.16) * 0.165, Math.cos(baseAngle - 0.16) * 0.165),
+      new THREE.Vector3(hubFaceX + side * 0.006, Math.sin(aRootL) * 0.088, Math.cos(aRootL) * 0.088),
+      new THREE.Vector3(hubFaceX + side * 0.004, Math.sin(baseAngle) * 0.072, Math.cos(baseAngle) * 0.072),
+      new THREE.Vector3(hubFaceX + side * 0.006, Math.sin(aRootR) * 0.088, Math.cos(aRootR) * 0.088),
+      new THREE.Vector3(midX, Math.sin(baseAngle + 0.16) * 0.165, Math.cos(baseAngle + 0.16) * 0.165),
+      new THREE.Vector3(outerX, Math.sin(aR) * (rRim - 0.012), Math.cos(aR) * (rRim - 0.012)),
+    ]);
+    const spokeMesh = new THREE.Mesh(
+      new THREE.TubeGeometry(uCurve, 28, 0.0125, 8, false),
+      mats.forgedWheel
+    );
+    spokeMesh.castShadow = true;
+    spinGroup.add(spokeMesh);
   }
 
-  // Central Hub & 5 Metallic Lug Bolts + Gold Xiaomi Center Cap
+  // Central Hub & 5 Metallic Lug Bolts + Gloss-Black Center Cap with Thin Silver/Gold Collar
   const wheelHub = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.088, 0.094, 0.055, 24),
+    new THREE.CylinderGeometry(0.086, 0.092, 0.055, 24),
     mats.forgedWheel
   );
   wheelHub.rotation.z = Math.PI / 2;
@@ -157,21 +169,29 @@ function buildWheelCorner({ isFront, side, mats }) {
   spinGroup.add(wheelHub);
 
   const centerCap = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.036, 0.038, 0.02, 20),
-    mats.goldBadge
+    new THREE.CylinderGeometry(0.036, 0.038, 0.022, 20),
+    mats.glossBlack
   );
   centerCap.rotation.z = Math.PI / 2;
   centerCap.position.x = hubFaceX + side * 0.024;
   spinGroup.add(centerCap);
 
+  const capRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.035, 0.0025, 8, 24),
+    mats.machinedAlloy
+  );
+  capRing.rotation.y = Math.PI / 2;
+  capRing.position.x = hubFaceX + side * 0.035;
+  spinGroup.add(capRing);
+
   for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2;
+    const a = (i / 5) * Math.PI * 2 + Math.PI / 5;
     const lug = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.009, 0.009, 0.022, 8),
-      mats.machinedAlloy
+      new THREE.CylinderGeometry(0.0085, 0.0085, 0.022, 8),
+      mats.darkCastAlu
     );
     lug.rotation.z = Math.PI / 2;
-    lug.position.set(hubFaceX + side * 0.022, Math.sin(a) * 0.062, Math.cos(a) * 0.062);
+    lug.position.set(hubFaceX + side * 0.020, Math.sin(a) * 0.060, Math.cos(a) * 0.060);
     spinGroup.add(lug);
   }
 

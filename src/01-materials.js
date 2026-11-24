@@ -188,52 +188,52 @@ function buildProceduralTextures() {
 const SU7_PAINTS = {
   yellow: {
     label: '闪电黄',
-    color: '#EBBF00',
-    metalness: 0.36,
-    roughness: 0.19,
+    color: '#F3C200',
+    metalness: 0.24,
+    roughness: 0.16,
     clearcoat: 1.0,
-    clearcoatRoughness: 0.05,
-    stripeColor: '#14161A',
-    accent: '#EBBF00',
+    clearcoatRoughness: 0.045,
+    stripeColor: '#767E88',
+    accent: '#F3C200',
   },
   silver: {
     label: '太空银',
-    color: '#B6C0CA',
-    metalness: 0.84,
+    color: '#9BA4B0',
+    metalness: 0.82,
     roughness: 0.18,
     clearcoat: 1.0,
     clearcoatRoughness: 0.045,
-    stripeColor: '#1A1D22',
+    stripeColor: '#F2C200',
     accent: '#D5DEE6',
   },
   white: {
     label: '珍珠白',
-    color: '#E8ECEB',
-    metalness: 0.22,
-    roughness: 0.17,
+    color: '#ECEFED',
+    metalness: 0.20,
+    roughness: 0.16,
     clearcoat: 1.0,
     clearcoatRoughness: 0.045,
-    stripeColor: '#191C22',
+    stripeColor: '#3A404A',
     accent: '#F4F6FA',
   },
   black: {
     label: '曜石黑',
-    color: '#13161B',
-    metalness: 0.56,
-    roughness: 0.16,
+    color: '#101216',
+    metalness: 0.54,
+    roughness: 0.15,
     clearcoat: 1.0,
     clearcoatRoughness: 0.04,
-    stripeColor: '#D9B126',
-    accent: '#EBBF00',
+    stripeColor: '#F2C200',
+    accent: '#F2C200',
   },
   green: {
     label: '鹦鹉绿',
-    color: '#2A6E4E',
-    metalness: 0.62,
-    roughness: 0.19,
+    color: '#165A54',
+    metalness: 0.64,
+    roughness: 0.18,
     clearcoat: 1.0,
-    clearcoatRoughness: 0.05,
-    stripeColor: '#EBBF00',
+    clearcoatRoughness: 0.045,
+    stripeColor: '#CFD6DE',
     accent: '#49A87B',
   },
 };
@@ -337,17 +337,14 @@ function createMaterialsLibrary() {
   });
 
   const cabinGlass = new THREE.MeshPhysicalMaterial({
-    color: '#0b1119',
-    metalness: 0.04,
-    roughness: 0.14,
-    transmission: 0.34,
+    color: '#080c12',
+    metalness: 0.06,
+    roughness: 0.12,
     transparent: true,
     opacity: 0.84,
-    ior: 1.50,
-    thickness: 0.015,
-    clearcoat: 0.45,
-    clearcoatRoughness: 0.14,
-    envMapIntensity: 0.85,
+    clearcoat: 0.28,
+    clearcoatRoughness: 0.16,
+    envMapIntensity: 0.52,
   });
 
   const headlightGlass = new THREE.MeshPhysicalMaterial({
@@ -421,12 +418,195 @@ function createMaterialsLibrary() {
   });
 
   const forgedWheel = new THREE.MeshStandardMaterial({
-    color: '#20242d',
-    metalness: 0.88,
-    roughness: 0.26,
-    envMapIntensity: 1.25,
+    color: '#111317',
+    metalness: 0.72,
+    roughness: 0.19,
+    envMapIntensity: 1.35,
     side: THREE.DoubleSide,
   });
+
+  const wheelRimYellow = new THREE.MeshStandardMaterial({
+    color: '#F2C400',
+    metalness: 0.25,
+    roughness: 0.22,
+  });
+
+  const satinGunmetal = new THREE.MeshStandardMaterial({
+    color: '#343942',
+    metalness: 0.58,
+    roughness: 0.36,
+    envMapIntensity: 1.15,
+  });
+
+  // Procedural high-resolution automotive decals & badges
+  function drawSideUltraCanvas(canvas, stripeHex, isRightSide) {
+    const W = 1024;
+    const H = 192;
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = stripeHex;
+
+    // Tapered diagonal door stripe matching real SU7 Ultra side decal
+    ctx.beginPath();
+    if (!isRightSide) {
+      // +X side: front is left (x=0), rear is right (x=W)
+      ctx.moveTo(14, 150);
+      ctx.lineTo(W - 48, 128);
+      ctx.lineTo(W - 14, 62);
+      ctx.lineTo(28, 86);
+    } else {
+      // -X side: rear is left (x=0), front is right (x=W)
+      ctx.moveTo(48, 128);
+      ctx.lineTo(W - 14, 150);
+      ctx.lineTo(W - 28, 86);
+      ctx.lineTo(14, 62);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Cut out italic "Ultra" script near front end of stripe
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.font = 'italic 800 70px "Segoe UI", Arial, sans-serif';
+    ctx.textBaseline = 'middle';
+    if (!isRightSide) {
+      ctx.textAlign = 'left';
+      ctx.fillText('Ultra', 42, 118);
+    } else {
+      ctx.textAlign = 'right';
+      ctx.fillText('Ultra', W - 42, 118);
+    }
+    ctx.restore();
+  }
+
+  const sideDecalCanvasL = document.createElement('canvas');
+  const sideDecalCanvasR = document.createElement('canvas');
+  drawSideUltraCanvas(sideDecalCanvasL, SU7_PAINTS.yellow.stripeColor, false);
+  drawSideUltraCanvas(sideDecalCanvasR, SU7_PAINTS.yellow.stripeColor, true);
+
+  const sideDecalTexL = new THREE.CanvasTexture(sideDecalCanvasL);
+  sideDecalTexL.colorSpace = THREE.SRGBColorSpace;
+  sideDecalTexL.anisotropy = 8;
+
+  const sideDecalTexR = new THREE.CanvasTexture(sideDecalCanvasR);
+  sideDecalTexR.colorSpace = THREE.SRGBColorSpace;
+  sideDecalTexR.anisotropy = 8;
+
+  const sideUltraDecalMat = new THREE.MeshPhysicalMaterial({
+    map: sideDecalTexL,
+    transparent: true,
+    alphaTest: 0.15,
+    metalness: 0.25,
+    roughness: 0.22,
+    clearcoat: 0.7,
+    polygonOffset: true,
+    polygonOffsetFactor: -3,
+    polygonOffsetUnits: -3,
+  });
+
+  const sideUltraDecalRightMat = new THREE.MeshPhysicalMaterial({
+    map: sideDecalTexR,
+    transparent: true,
+    alphaTest: 0.15,
+    metalness: 0.25,
+    roughness: 0.22,
+    clearcoat: 0.7,
+    polygonOffset: true,
+    polygonOffsetFactor: -3,
+    polygonOffsetUnits: -3,
+  });
+
+  function updateSideDecalColor(stripeHex) {
+    drawSideUltraCanvas(sideDecalCanvasL, stripeHex, false);
+    drawSideUltraCanvas(sideDecalCanvasR, stripeHex, true);
+    sideDecalTexL.needsUpdate = true;
+    sideDecalTexR.needsUpdate = true;
+  }
+
+  const frontPlateTex = makeCanvasTexture(512, (ctx, S) => {
+    ctx.fillStyle = '#181c24';
+    ctx.fillRect(0, 0, S, S);
+    ctx.strokeStyle = '#3b4252';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(8, 8, S - 16, S - 16);
+    ctx.fillStyle = '#e5e9f0';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '700 108px "Segoe UI", Arial, sans-serif';
+    ctx.fillText('SU7', S * 0.31, S * 0.50);
+    ctx.font = 'italic 700 94px "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = '#d8dee9';
+    ctx.fillText('Ultra', S * 0.69, S * 0.52);
+  }, { repeat: [1, 1], color: true });
+
+  const frontPlateMat = new THREE.MeshStandardMaterial({
+    map: frontPlateTex,
+    metalness: 0.35,
+    roughness: 0.32,
+  });
+
+  const miBadgeTex = makeCanvasTexture(256, (ctx, S) => {
+    ctx.fillStyle = '#14161b';
+    ctx.fillRect(0, 0, S, S);
+    // Carbon weave subtle background
+    ctx.strokeStyle = '#252932';
+    ctx.lineWidth = 4;
+    for (let i = -S; i < S * 2; i += 16) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i + S, S);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#EBBF00';
+    ctx.lineWidth = 14;
+    ctx.strokeRect(14, 14, S - 28, S - 28);
+    ctx.fillStyle = '#F2C94C';
+    ctx.font = '900 112px "Segoe UI", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('MI', S / 2, S / 2 + 4);
+  }, { repeat: [1, 1], color: true });
+
+  const miBadgeMat = new THREE.MeshStandardMaterial({
+    map: miBadgeTex,
+    metalness: 0.72,
+    roughness: 0.24,
+  });
+
+  function makeBadgeTextMat(text, { italic = false, fontSize = 68, color = '#1f242d' } = {}) {
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 112;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.fillStyle = color;
+    ctx.font = `${italic ? 'italic ' : ''}900 ${fontSize}px "Segoe UI", "Microsoft YaHei", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, c.width / 2, c.height / 2);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.generateMipmaps = false;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    return new THREE.MeshStandardMaterial({
+      map: tex,
+      transparent: true,
+      alphaTest: 0.02,
+      depthWrite: false,
+      metalness: 0.55,
+      roughness: 0.28,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+  }
+
+  const rearXiaomiMat = makeBadgeTextMat('X I A O M I', { fontSize: 64, color: '#1f242d' });
+  const rearSu7UltraMat = makeBadgeTextMat('SU7 Ultra', { italic: true, fontSize: 74, color: '#1f242d' });
+  const rearCnMat = makeBadgeTextMat('小 米', { fontSize: 70, color: '#1f242d' });
 
   const machinedAlloy = new THREE.MeshStandardMaterial({
     color: '#cfd5de',
@@ -559,6 +739,14 @@ function createMaterialsLibrary() {
     bodyPaint,
     bodyPaintSecondary,
     stripeMat,
+    sideUltraDecalMat,
+    sideUltraDecalRightMat,
+    frontPlateMat,
+    miBadgeMat,
+    rearXiaomiMat,
+    rearSu7UltraMat,
+    rearCnMat,
+    satinGunmetal,
     carbon,
     carbonMatte,
     glossBlack,
@@ -589,6 +777,16 @@ function createMaterialsLibrary() {
     bodyPaint,
     bodyPaintSecondary,
     stripeMat,
+    sideUltraDecalMat,
+    sideUltraDecalRightMat,
+    frontPlateMat,
+    miBadgeMat,
+    rearXiaomiMat,
+    rearSu7UltraMat,
+    rearCnMat,
+    satinGunmetal,
+    wheelRimYellow,
+    updateSideDecalColor,
     carbon,
     carbonMatte,
     glossBlack,

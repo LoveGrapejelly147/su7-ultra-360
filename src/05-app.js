@@ -156,12 +156,12 @@ function initSU7Showroom() {
   scene.environment = buildStudioEnvironment(renderer);
 
   const camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.08, 100);
-  camera.position.set(4.85, 1.72, 5.45);
+  camera.position.set(5.15, 1.76, 5.75);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.06;
-  controls.target.set(0.05, 0.56, 0.0);
+  controls.target.set(-0.24, 0.46, 0.22);
   controls.minDistance = 1.85;
   controls.maxDistance = 14.0;
   controls.maxPolarAngle = Math.PI * 0.492;
@@ -211,7 +211,7 @@ function initSU7Showroom() {
   const keyLight = new THREE.DirectionalLight('#ffffff', 1.90);
   keyLight.position.set(4.5, 7.2, 4.2);
   keyLight.castShadow = true;
-  keyLight.shadow.mapSize.set(2048, 2048);
+  keyLight.shadow.mapSize.set(1024, 1024);
   keyLight.shadow.camera.near = 1;
   keyLight.shadow.camera.far = 20;
   keyLight.shadow.camera.left = -4.2;
@@ -221,7 +221,7 @@ function initSU7Showroom() {
   keyLight.shadow.bias = -0.0005;
 
   const rimCool = new THREE.DirectionalLight('#8ac7ff', 0.92);
-  rimCool.position.set(-5.0, 3.4, -4.5);
+  rimCool.position.set(-6.5, 4.8, 2.2);
 
   const rimWarm = new THREE.DirectionalLight('#ffd296', 0.72);
   rimWarm.position.set(4.5, 2.2, -5.0);
@@ -265,26 +265,37 @@ function initSU7Showroom() {
     usingCustomGlb: false,
   };
 
-  // Camera Presets (framed cleanly inside unobstructed center viewport)
+  // Camera Presets (framed cleanly inside unobstructed center viewport, clear of left/right HUD cards)
   const CAMERA_PRESETS = {
-    hero:       { pos: [4.85, 1.72, 5.45],   target: [0.05, 0.56, 0.0] },
-    front:      { pos: [0.0,  1.08, 6.20],   target: [0.0, 0.54, 0.35] },
-    side:       { pos: [6.85, 1.22, 0.0],    target: [0.0, 0.56, 0.0] },
-    rear:       { pos: [-4.75, 1.76, -5.35], target: [-0.18, 0.50, -0.25] },
+    hero:       { pos: [5.15, 1.76, 5.75],   target: [-0.24, 0.46, 0.22] },
+    front:      { pos: [0.20, 1.04, 6.55],   target: [0.22, 0.46, 0.20] },
+    side:       { pos: [7.20, 1.24, 0.0],    target: [0.0, 0.50, -0.15] },
+    rear:       { pos: [-5.10, 1.82, -5.65], target: [0.34, 0.44, -0.32] },
     top:        { pos: [0.0,  7.40, 0.95],   target: [0.0, 0.45, 0.0] },
     wheel:      { pos: [2.45, 0.66, 2.02],   target: [0.80, 0.36, 1.48] },
-    powertrain: { pos: [-4.15, 2.30, -3.90], target: [-0.05, 0.36, -0.15] },
+    powertrain: { pos: [-4.15, 2.30, -3.90], target: [0.15, 0.36, -0.15] },
   };
 
   let camTween = null;
   function setPreset(key) {
     const p = CAMERA_PRESETS[key];
     if (!p) return;
+    const startTarget = controls.target.clone();
+    const endTarget = new THREE.Vector3(...p.target);
+    const startOff = camera.position.clone().sub(startTarget);
+    const endOff = new THREE.Vector3(...p.pos).sub(endTarget);
+    const sSph = new THREE.Spherical().setFromVector3(startOff);
+    const eSph = new THREE.Spherical().setFromVector3(endOff);
+    // Shortest angular wrap for theta
+    let dTheta = eSph.theta - sSph.theta;
+    while (dTheta > Math.PI) dTheta -= Math.PI * 2;
+    while (dTheta < -Math.PI) dTheta += Math.PI * 2;
     camTween = {
-      startPos: camera.position.clone(),
-      startTarget: controls.target.clone(),
-      endPos: new THREE.Vector3(...p.pos),
-      endTarget: new THREE.Vector3(...p.target),
+      startTarget,
+      endTarget,
+      sSph,
+      eSph,
+      dTheta,
       t: 0,
       dur: 0.72,
     };
@@ -376,6 +387,7 @@ function initSU7Showroom() {
     mats.bodyPaint.roughness = p.roughness;
     mats.bodyPaintSecondary.color.set(p.color);
     mats.stripeMat.color.set(p.stripeColor);
+    mats.updateSideDecalColor(p.stripeColor);
     document.getElementById('paint-label').textContent = p.label;
     document.querySelectorAll('#paint-swatches .swatch').forEach((el) => {
       el.classList.toggle('active', el.dataset.paint === paintKey);
@@ -825,13 +837,18 @@ function initSU7Showroom() {
       fpsTimer = 0;
     }
 
-    // Camera preset smooth ease-out tween
+    // Camera preset smooth spherical orbit tween (orbits around car rather than cutting through cabin!)
     if (camTween) {
       camTween.t += dt / camTween.dur;
       const u = Math.min(1, camTween.t);
       const easeU = 1 - Math.pow(1 - u, 3);
-      camera.position.lerpVectors(camTween.startPos, camTween.endPos, easeU);
       controls.target.lerpVectors(camTween.startTarget, camTween.endTarget, easeU);
+      const sph = new THREE.Spherical(
+        camTween.sSph.radius + (camTween.eSph.radius - camTween.sSph.radius) * easeU,
+        camTween.sSph.phi + (camTween.eSph.phi - camTween.sSph.phi) * easeU,
+        camTween.sSph.theta + camTween.dTheta * easeU
+      );
+      camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(sph));
       if (u >= 1) camTween = null;
     }
 
